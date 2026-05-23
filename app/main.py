@@ -246,6 +246,19 @@ async def bot_test(
     })
 
 
+
+
+# ============ ОТДЕЛЬНЫЙ ТЕСТовый ЧАТ ============
+@app.get("/bots/{bot_id}/chat", response_class=HTMLResponse)
+async def bot_chat_test(request: Request, bot_id: int):
+    """Полноэкранный тест-чат без Telegram."""
+    bot = db.get_bot(bot_id)
+    if not bot:
+        raise HTTPException(404)
+    return templates.TemplateResponse("chat_test.html", {
+        "request": request, "bot": bot,
+    })
+
 if __name__ == "__main__":
     import uvicorn
     # Railway сам задаёт PORT — берём его, по умолчанию 8000
