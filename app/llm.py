@@ -1,130 +1,121 @@
-"""LLM клиент. Поддерживает GigaChat, OpenAI и Claude через единый интерфейс."""
+"""LLM клиент. GigaChat через прямые HTTP-запросы, OpenAI, Claude."""
 import os
+import ssl
+import time
+import httpx
+import certifi
 from typing import Optional
 from app.db import Bot, Message, KnowledgeChunk
 
+# Кеш токена GigaChat (действует 30 мин)
+_giga_token: Optional[str] = None
+_giga_token_expires: float = 0
+
 
 def build_system_prompt(bot: Bot, knowledge: list[KnowledgeChunk]) -> str:
-    """Собирает финальный system prompt: бот.system_prompt + база знаний."""
     parts = [bot.system_prompt.strip()]
-
     if knowledge:
         parts.append("\n\n=== БАЗА ЗНАНИЙ ===")
-        parts.append("Используй информацию ниже для ответов. Если в базе знаний нет ответа — честно скажи об этом, не выдумывай.\n")
+        parts.append("Используй информацию ниже для ответов.\n")
         for k in knowledge:
             parts.append(f"\n### {k.title}\n{k.content}")
-
     parts.append(
-        "\n\n=== ОБЩИЕ ПРАВИЛА ===\n"
+        "\n\n=== ПРАВИЛА ===\n"
         "- Отвечай на русском языке.\n"
-        "- Будь краток: 1-3 предложения, если не просили подробнее.\n"
-        "- Не выдумывай факты, которых нет в инструкции и базе знаний.\n"
+        "- Будь краток: 1–3 предложения, если не просили подробнее.\n"
+        "- Не выдумывай факты которых нет в инструкции.\n"
         "- Если не знаешь ответа — предложи связаться с человеком."
     )
     return "\n".join(parts)
 
 
-def to_provider_messages(provider: str, system_prompt: str, history: list[Message], new_user_text: str):
-    """Конвертирует историю в формат, понятный конкретному провайдеру."""
-    messages = []
-
-    if provider in ("openai", "anthropic", "gigachat"):
-        # У всех трёх схожий формат
-        if provider != "anthropic":
-            messages.append({"role": "system", "content": system_prompt})
-        for m in history:
-            if m.role in ("user", "assistant"):
-                messages.append({"role": m.role, "content": m.content})
-        messages.append({"role": "user", "content": new_user_text})
-
-    return messages
-
-
-def generate_reply_gigachat(bot: Bot, system_prompt: str, history: list[Message], new_user_text: str) -> tuple[str, int]:
-    """Ответ через GigaChat. Возвращает (текст, токенов)."""
-    from gigachat import GigaChat
-    from gigachat.models import Chat, Messages, MessagesRole
+def _get_gigachat_token() -> str:
+    """Получаем access token GigaChat. Кешируем на 29 минут."""
+    global _giga_token, _giga_token_expires
+    if _giga_token and time.time() < _giga_token_expires:
+        return _giga_token
 
     creds = os.getenv("GIGACHAT_CREDENTIALS")
     if not creds:
-        raise RuntimeError("GIGACHAT_CREDENTIALS не задан в .env")
+        raise RuntimeError("GIGACHAT_CREDENTIALS не задан в переменных окружения")
 
     scope = os.getenv("GIGACHAT_SCOPE", "GIGACHAT_API_PERS")
 
-    msgs = [Messages(role=MessagesRole.SYSTEM, content=system_prompt)]
+    # GigaChat использует самоподписанный cert — отключаем верификацию
+    with httpx.Client(verify=False, timeout=15) as client:
+        resp = client.post(
+            "https://ngw.devices.sberbank.ru:9443/api/v2/oauth",
+            headers={
+                "Authorization": f"Basic {creds}",
+                "RqUID": "replika-bot",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            data={"scope": scope},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+    _giga_token = data["access_token"]
+    _giga_token_expires = time.time() + 29 * 60
+    return _giga_token
+
+
+def generate_reply_gigachat(bot: Bot, system_prompt: str, history: list[Message], user_text: str) -> tuple[str, int]:
+    token = _get_gigachat_token()
+    messages = [{"role": "system", "content": system_prompt}]
     for m in history:
-        if m.role == "user":
-            msgs.append(Messages(role=MessagesRole.USER, content=m.content))
-        elif m.role == "assistant":
-            msgs.append(Messages(role=MessagesRole.ASSISTANT, content=m.content))
-    msgs.append(Messages(role=MessagesRole.USER, content=new_user_text))
+        if m.role in ("user", "assistant"):
+            messages.append({"role": m.role, "content": m.content})
+    messages.append({"role": "user", "content": user_text})
 
-    payload = Chat(
-        messages=msgs,
-        temperature=bot.temperature,
-        max_tokens=bot.max_tokens,
-        model=bot.llm_model or "GigaChat",
-    )
+    with httpx.Client(verify=False, timeout=30) as client:
+        resp = client.post(
+            "https://gigachat.devices.sberbank.ru/api/v1/chat/completions",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "model": bot.llm_model or "GigaChat",
+                "messages": messages,
+                "temperature": bot.temperature,
+                "max_tokens": bot.max_tokens,
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
 
-    with GigaChat(credentials=creds, scope=scope, verify_ssl_certs=False) as giga:
-        response = giga.chat(payload)
-
-    text = response.choices[0].message.content
-    tokens = getattr(response.usage, "total_tokens", 0) if response.usage else 0
-    return text.strip(), tokens
+    text = data["choices"][0]["message"]["content"].strip()
+    tokens = data.get("usage", {}).get("total_tokens", 0)
+    return text, tokens
 
 
-def generate_reply_openai(bot: Bot, system_prompt: str, history: list[Message], new_user_text: str) -> tuple[str, int]:
-    """Ответ через OpenAI."""
-    from openai import OpenAI
+def generate_reply_openai(bot: Bot, system_prompt: str, history: list[Message], user_text: str) -> tuple[str, int]:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY не задан")
-    client = OpenAI(api_key=api_key)
-
-    messages = to_provider_messages("openai", system_prompt, history, new_user_text)
-    resp = client.chat.completions.create(
-        model=bot.llm_model or "gpt-4o-mini",
-        messages=messages,
-        temperature=bot.temperature,
-        max_tokens=bot.max_tokens,
-    )
-    text = resp.choices[0].message.content.strip()
-    tokens = resp.usage.total_tokens if resp.usage else 0
+    messages = [{"role": "system", "content": system_prompt}]
+    for m in history:
+        if m.role in ("user", "assistant"):
+            messages.append({"role": m.role, "content": m.content})
+    messages.append({"role": "user", "content": user_text})
+    with httpx.Client(timeout=30) as client:
+        resp = client.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}"},
+            json={"model": bot.llm_model or "gpt-4o-mini", "messages": messages,
+                  "temperature": bot.temperature, "max_tokens": bot.max_tokens},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    text = data["choices"][0]["message"]["content"].strip()
+    tokens = data.get("usage", {}).get("total_tokens", 0)
     return text, tokens
 
 
-def generate_reply_anthropic(bot: Bot, system_prompt: str, history: list[Message], new_user_text: str) -> tuple[str, int]:
-    """Ответ через Claude."""
-    import anthropic
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise RuntimeError("ANTHROPIC_API_KEY не задан")
-    client = anthropic.Anthropic(api_key=api_key)
-
-    messages = to_provider_messages("anthropic", system_prompt, history, new_user_text)
-    resp = client.messages.create(
-        model=bot.llm_model or "claude-3-5-haiku-20241022",
-        max_tokens=bot.max_tokens,
-        temperature=bot.temperature,
-        system=system_prompt,
-        messages=messages,
-    )
-    text = resp.content[0].text.strip()
-    tokens = (resp.usage.input_tokens + resp.usage.output_tokens) if resp.usage else 0
-    return text, tokens
-
-
-def generate_reply(bot: Bot, knowledge: list[KnowledgeChunk], history: list[Message], new_user_text: str) -> tuple[str, int]:
-    """Главная точка входа — выбирает провайдер и возвращает ответ."""
+def generate_reply(bot: Bot, knowledge: list[KnowledgeChunk], history: list[Message], user_text: str) -> tuple[str, int]:
     system_prompt = build_system_prompt(bot, knowledge)
-
     provider = bot.llm_provider.lower()
     if provider == "gigachat":
-        return generate_reply_gigachat(bot, system_prompt, history, new_user_text)
+        return generate_reply_gigachat(bot, system_prompt, history, user_text)
     elif provider == "openai":
-        return generate_reply_openai(bot, system_prompt, history, new_user_text)
-    elif provider == "anthropic":
-        return generate_reply_anthropic(bot, system_prompt, history, new_user_text)
+        return generate_reply_openai(bot, system_prompt, history, user_text)
     else:
         raise RuntimeError(f"Неизвестный провайдер: {provider}")
