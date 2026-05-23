@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Тест — {{ bot.name }} · Реплика</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400;12..96,75..100,500;12..96,75..100,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #F2ECE0;
+  --paper-deep: #E8E1D2;
+  --ink: #14110D;
+  --ink-soft: #4A4339;
+  --ink-mute: #8A8174;
+  --emerald: #1B6E4B;
+  --emerald-light: #2E8C63;
+  --mint: #7BC470;
+  --mint-bright: #9CE08F;
+  --line: rgba(20,17,13,0.14);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+  font-variation-settings: "opsz" 14, "wdth" 100, "wght" 400;
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ====== HEADER ====== */
+.header {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0 20px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(242,236,224,0.1);
+}
+.header-back {
+  color: rgba(242,236,224,0.6);
+  text-decoration: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  border: 1px solid rgba(242,236,224,0.15);
+  border-radius: 5px;
+  transition: all 0.15s;
+}
+.header-back:hover { color: var(--paper); border-color: rgba(242,236,224,0.4); }
+.bot-avatar {
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--emerald), #0F4A30);
+  color: var(--paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-variation-settings: "wght" 600;
+  font-size: 17px;
+  letter-spacing: -0.03em;
+  flex-shrink: 0;
+}
+.bot-info { flex: 1; }
+.bot-name {
+  font-variation-settings: "opsz" 24, "wdth" 100, "wght" 600;
+  font-size: 15px;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+}
+.bot-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: rgba(242,236,224,0.5);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+.header-actions { display: flex; gap: 8px; }
+.hbtn {
+  background: rgba(242,236,224,0.08);
+  border: 1px solid rgba(242,236,224,0.15);
+  color: rgba(242,236,224,0.7);
+  padding: 7px 13px;
+  border-radius: 5px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.hbtn:hover { background: rgba(242,236,224,0.14); color: var(--paper); }
+
+/* ====== CHAT WINDOW ====== */
+.chat-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 0;
+  display: flex;
+  flex-direction: column;
+  scroll-behavior: smooth;
+}
+.chat-inner {
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Welcome card */
+.welcome {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  margin-bottom: 8px;
+}
+.welcome .ic { font-size: 36px; margin-bottom: 12px; }
+.welcome h2 {
+  font-variation-settings: "opsz" 48, "wdth" 100, "wght" 600;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+.welcome p { font-size: 14px; color: var(--ink-mute); line-height: 1.5; }
+.welcome .badge {
+  display: inline-block;
+  margin-top: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 4px 10px;
+  background: rgba(27,110,75,0.1);
+  color: var(--emerald);
+  border-radius: 999px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Messages */
+.msg-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+.msg-row.user { flex-direction: row-reverse; }
+
+.msg-avatar {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-variation-settings: "wght" 600;
+}
+.msg-avatar.bot {
+  background: linear-gradient(135deg, var(--emerald), #0F4A30);
+  color: var(--paper);
+}
+.msg-avatar.user {
+  background: var(--paper-deep);
+  color: var(--ink-soft);
+}
+
+.bubble {
+  max-width: 72%;
+  padding: 12px 16px;
+  border-radius: 16px;
+  font-size: 14.5px;
+  line-height: 1.5;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+.bubble.bot {
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-bottom-left-radius: 4px;
+}
+.bubble.user {
+  background: var(--emerald);
+  color: var(--paper);
+  border-bottom-right-radius: 4px;
+}
+.bubble.thinking {
+  display: inline-flex;
+  gap: 4px;
+  padding: 14px 18px;
+  align-items: center;
+}
+.bubble.thinking span {
+  width: 7px; height: 7px;
+  background: var(--emerald);
+  border-radius: 50%;
+  animation: think 1.4s infinite;
+}
+.bubble.thinking span:nth-child(2) { animation-delay: 0.2s; }
+.bubble.thinking span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes think {
+  0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-4px); }
+}
+
+.msg-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  color: var(--ink-mute);
+  margin-top: 4px;
+  text-align: center;
+  width: 100%;
+}
+
+/* Suggestions */
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+  margin-left: 40px;
+}
+.sug {
+  background: var(--paper);
+  border: 1px solid var(--emerald);
+  color: var(--emerald);
+  padding: 6px 13px;
+  border-radius: 999px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.sug:hover { background: var(--emerald); color: var(--paper); }
+
+/* ====== INPUT BAR ====== */
+.input-bar {
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+  padding: 14px 20px 20px;
+  flex-shrink: 0;
+}
+.input-inner {
+  max-width: 720px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: flex-end;
+}
+.msg-input {
+  background: var(--paper-deep);
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 14.5px;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.15s;
+  resize: none;
+  line-height: 1.45;
+  min-height: 48px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+.msg-input::placeholder { color: var(--ink-mute); }
+.msg-input:focus { border-color: var(--emerald); background: var(--paper); }
+.send-btn {
+  width: 48px; height: 48px;
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.send-btn:hover { background: var(--emerald); }
+.send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.send-btn svg { width: 18px; height: 18px; }
+.input-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--ink-mute);
+  text-align: center;
+  margin-top: 8px;
+  letter-spacing: 0.05em;
+}
+.input-hint kbd {
+  background: var(--paper-deep);
+  border: 1px solid var(--line);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <a href="/bots/{{ bot.id }}" class="header-back">← назад</a>
+  <div class="bot-avatar">{{ bot.name[0]|upper }}</div>
+  <div class="bot-info">
+    <div class="bot-name">{{ bot.name }}</div>
+    <div class="bot-sub">Тест-режим · {{ bot.llm_provider }} · {{ bot.llm_model }}</div>
+  </div>
+  <div class="header-actions">
+    <button class="hbtn" onclick="clearChat()">Очистить чат</button>
+  </div>
+</div>
+
+<div class="chat-area" id="chatArea">
+  <div class="chat-inner" id="chatInner">
+
+    <div class="welcome" id="welcomeCard">
+      <div class="ic">💬</div>
+      <h2>Тест-чат с {{ bot.name }}</h2>
+      <p>Здесь можно протестировать бота до подключения Telegram.<br>
+         Сообщения обрабатываются через {{ bot.llm_provider }}.</p>
+      <span class="badge">● Живой тест</span>
+    </div>
+
+    <!-- Приветствие бота -->
+    <div class="msg-row" id="greetingRow">
+      <div class="msg-avatar bot">{{ bot.name[0]|upper }}</div>
+      <div class="bubble bot">{{ bot.greeting }}</div>
+    </div>
+
+    <!-- Быстрые вопросы -->
+    {% if bot.industry == "delivery" %}
+    <div class="suggestions" id="suggestionsRow">
+      <div class="sug" onclick="sendSuggestion(this)">Хочу работать курьером</div>
+      <div class="sug" onclick="sendSuggestion(this)">Сколько можно зарабатывать?</div>
+      <div class="sug" onclick="sendSuggestion(this)">Как оформиться?</div>
+    </div>
+    {% elif bot.industry == "medical" %}
+    <div class="suggestions" id="suggestionsRow">
+      <div class="sug" onclick="sendSuggestion(this)">Хочу записаться на приём</div>
+      <div class="sug" onclick="sendSuggestion(this)">Сколько стоит чистка зубов?</div>
+      <div class="sug" onclick="sendSuggestion(this)">Принимаете ли ДМС?</div>
+    </div>
+    {% elif bot.industry == "legal" %}
+    <div class="suggestions" id="suggestionsRow">
+      <div class="sug" onclick="sendSuggestion(this)">Нужна консультация юриста</div>
+      <div class="sug" onclick="sendSuggestion(this)">Сколько стоит ваша услуга?</div>
+    </div>
+    {% else %}
+    <div class="suggestions" id="suggestionsRow">
+      <div class="sug" onclick="sendSuggestion(this)">Привет! Расскажи о себе</div>
+      <div class="sug" onclick="sendSuggestion(this)">Чем ты можешь помочь?</div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+<div class="input-bar">
+  <div class="input-inner">
+    <textarea
+      class="msg-input"
+      id="msgInput"
+      placeholder="Напишите сообщение…"
+      rows="1"
+      autofocus></textarea>
+    <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <line x1="22" y1="2" x2="11" y2="13"/>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+      </svg>
+    </button>
+  </div>
+  <div class="input-hint">
+    <kbd>Enter</kbd> отправить · <kbd>Shift + Enter</kbd> новая строка
+  </div>
+</div>
+
+<script>
+const BOT_ID = {{ bot.id }};
+let sessionId = 'test-' + Math.random().toString(36).slice(2);
+let isTyping = false;
+
+const chatInner = document.getElementById('chatInner');
+const chatArea  = document.getElementById('chatArea');
+const msgInput  = document.getElementById('msgInput');
+const sendBtn   = document.getElementById('sendBtn');
+
+// Авторазмер textarea
+msgInput.addEventListener('input', () => {
+  msgInput.style.height = 'auto';
+  msgInput.style.height = Math.min(msgInput.scrollHeight, 140) + 'px';
+});
+
+// Enter = отправить
+msgInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+function scrollBottom() {
+  chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
+}
+
+function now() {
+  return new Date().toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
+}
+
+function addUserBubble(text) {
+  const row = document.createElement('div');
+  row.className = 'msg-row user';
+  row.innerHTML = `
+    <div class="msg-avatar user">Вы</div>
+    <div class="bubble user">${escHtml(text)}</div>`;
+  chatInner.appendChild(row);
+  scrollBottom();
+}
+
+function addThinking() {
+  const row = document.createElement('div');
+  row.className = 'msg-row';
+  row.id = 'thinkingRow';
+  row.innerHTML = `
+    <div class="msg-avatar bot">{{ bot.name[0]|upper }}</div>
+    <div class="bubble thinking"><span></span><span></span><span></span></div>`;
+  chatInner.appendChild(row);
+  scrollBottom();
+  return row;
+}
+
+function removeThinking() {
+  const r = document.getElementById('thinkingRow');
+  if (r) r.remove();
+}
+
+function addBotBubble(text) {
+  const row = document.createElement('div');
+  row.className = 'msg-row';
+  row.innerHTML = `
+    <div class="msg-avatar bot">{{ bot.name[0]|upper }}</div>
+    <div class="bubble bot">${escHtml(text)}</div>`;
+  chatInner.appendChild(row);
+  scrollBottom();
+}
+
+function escHtml(t) {
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+           .replace(/\n/g,'<br>');
+}
+
+function hideSuggestions() {
+  const s = document.getElementById('suggestionsRow');
+  if (s) s.style.display = 'none';
+}
+
+function sendSuggestion(el) {
+  const text = el.textContent;
+  hideSuggestions();
+  processMessage(text);
+}
+
+async function sendMessage() {
+  const text = msgInput.value.trim();
+  if (!text || isTyping) return;
+  msgInput.value = '';
+  msgInput.style.height = 'auto';
+  hideSuggestions();
+  processMessage(text);
+}
+
+async function processMessage(text) {
+  isTyping = true;
+  sendBtn.disabled = true;
+
+  addUserBubble(text);
+  const thinkRow = addThinking();
+
+  try {
+    const form = new FormData();
+    form.append('message', text);
+    form.append('session_id', sessionId);
+
+    const resp = await fetch(`/bots/${BOT_ID}/test`, {
+      method: 'POST',
+      body: form
+    });
+
+    removeThinking();
+
+    if (!resp.ok) throw new Error('Ошибка сервера: ' + resp.status);
+
+    const html = await resp.text();
+    // Сервер возвращает HTML-фрагмент с двумя bubble div-ами
+    // Парсим и вытаскиваем только ответ бота
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    const botBubble = tmp.querySelector('.bubble.bot');
+    const reply = botBubble ? botBubble.textContent : '…';
+    addBotBubble(reply);
+
+  } catch (e) {
+    removeThinking();
+    addBotBubble('Ошибка: ' + e.message + '\n\nПроверьте что GIGACHAT_CREDENTIALS добавлен в Variables на Railway.');
+  }
+
+  isTyping = false;
+  sendBtn.disabled = false;
+  msgInput.focus();
+}
+
+function clearChat() {
+  // Удаляем все сообщения кроме welcome и greeting
+  sessionId = 'test-' + Math.random().toString(36).slice(2);
+  const keep = ['welcomeCard', 'greetingRow', 'suggestionsRow'];
+  Array.from(chatInner.children).forEach(el => {
+    if (!keep.includes(el.id)) el.remove();
+  });
+  const s = document.getElementById('suggestionsRow');
+  if (s) s.style.display = 'flex';
+  scrollBottom();
+}
+</script>
+</body>
+</html>
