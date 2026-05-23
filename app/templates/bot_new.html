@@ -5,119 +5,210 @@
 <div class="page-head">
   <div class="eyebrow">ШАГ 01 · НАСТРОЙКА</div>
   <h1>Создать <span class="accent">бота</span>.</h1>
-  <p class="lede">Заполните основные параметры. Telegram-токен можно добавить сейчас или позже — бот сразу попробует подключиться к каналу.</p>
+  <p class="lede">Заполните параметры. Telegram-токен можно добавить сейчас или позже.</p>
 </div>
 
-<form method="POST" action="/bots/new">
+<style>
+.llm-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+.llm-card {
+  border: 1.5px solid var(--line);
+  background: var(--paper-soft);
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+.llm-card:hover { border-color: var(--ink); }
+.llm-card.selected {
+  border-color: var(--emerald);
+  background: rgba(27,110,75,0.05);
+}
+.llm-card.selected::after {
+  content: "✓";
+  position: absolute;
+  top: 10px; right: 10px;
+  background: var(--emerald);
+  color: var(--paper);
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+.llm-card .ic {
+  font-size: 26px;
+  margin-bottom: 8px;
+  display: block;
+}
+.llm-card .nm {
+  font-variation-settings: "wght" 600;
+  font-size: 15px;
+  letter-spacing: -0.015em;
+  margin-bottom: 4px;
+}
+.llm-card .prov {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--ink-mute);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.llm-card .badge {
+  margin-top: 10px;
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.08em;
+}
+.llm-card .badge.free { background: rgba(27,110,75,0.12); color: var(--emerald); }
+.llm-card .badge.paid { background: var(--paper-deep); color: var(--ink-mute); }
+.field-hint {
+  font-size: 13px;
+  color: var(--ink-mute);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+.field-hint code {
+  background: var(--paper-deep);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
+</style>
 
+<form method="POST" action="/bots/new">
+  <input type="hidden" name="llm_provider" id="llm_provider_input" value="gigachat" />
+  <input type="hidden" name="llm_model" id="llm_model_input" value="GigaChat" />
+
+  <!-- 01: Имя -->
   <div class="form-section">
     <div class="section-title">01 — Имя и контекст</div>
     <h3>Кто этот бот?</h3>
-
-    <div class="form-grid">
+    <div class="form-grid" style="margin-top:16px;">
       <div class="field">
         <label>Имя бота <span class="req">*</span></label>
-        <input class="input" name="name" required placeholder="Роза, Алиса, Алекс…" />
+        <input class="input" name="name" required placeholder="Роза, Павел, Алекс…" />
       </div>
       <div class="field">
-        <label>Индустрия</label>
+        <label>Сфера</label>
         <select class="select" name="industry">
           <option value="general">Общее</option>
           <option value="medical">Медицина / стоматология</option>
-          <option value="legal">Юр. услуги</option>
+          <option value="legal">Юридические услуги</option>
           <option value="auto">Авто / автосалон</option>
-          <option value="beauty">Бьюти / салоны</option>
-          <option value="horeca">HoReCa / рестораны</option>
+          <option value="beauty">Красота / салоны</option>
+          <option value="horeca">Рестораны / HoReCa</option>
           <option value="real-estate">Недвижимость</option>
           <option value="ecom">Интернет-магазин</option>
           <option value="education">Образование</option>
+          <option value="delivery">Доставка / курьеры</option>
         </select>
       </div>
       <div class="field col-2">
-        <label>Краткое описание <span class="hint">видно только вам в админке</span></label>
-        <input class="input" name="description" placeholder="Принимает входящие в стоматологию ‘Северные ворота’ в Казани" />
+        <label>Краткое описание <span class="hint">видно только вам</span></label>
+        <input class="input" name="description" placeholder="Бот квалифицирует курьеров для Яндекс Еды" />
       </div>
     </div>
   </div>
 
+  <!-- 02: Промпт -->
   <div class="form-section">
     <div class="section-title">02 — Поведение</div>
     <h3>Как он должен <span style="color: var(--emerald)">говорить</span>?</h3>
-
-    <div class="form-grid full">
+    <div style="margin-top:16px;">
       <div class="field">
-        <label>System prompt — кто бот, как себя ведёт <span class="req">*</span></label>
-        <textarea class="textarea large" name="system_prompt" required placeholder="Ты — Роза, голосовой помощник стоматологии «Северные ворота» в Казани.
-
-Твоя задача — принимать звонки и записывать пациентов на приём. Будь дружелюбной, краткой, отвечай по делу.
-
-ПРАВИЛА:
-- Никогда не ставь диагнозы, не давай мед. советов
-- Если боль сильная — сразу предложи экстренный приём в течение 24 часов
-- Подтверждай дату/время/имя врача обратно пациенту
-- Спрашивай про ДМС перед бронированием</textarea>
+        <label>Инструкция для бота (промпт) <span class="req">*</span></label>
+        <textarea class="textarea large" name="system_prompt" required
+          placeholder="Опишите кто этот бот, его цель и правила поведения…"></textarea>
+        <div class="field-hint">
+          Пример структуры: <code>#Личность</code> — кто бот,
+          <code>#Цель</code> — что должен делать,
+          <code>#Правила</code> — ограничения,
+          <code>#Тон</code> — как общается.
+        </div>
       </div>
-      <div class="field">
-        <label>Приветствие <span class="hint">первое сообщение</span></label>
-        <input class="input" name="greeting" value="Здравствуйте! Меня зовут Роза, я помощник клиники. Чем могу помочь?" />
+      <div class="field" style="margin-top:14px;">
+        <label>Приветственная фраза <span class="hint">первое сообщение</span></label>
+        <input class="input" name="greeting"
+          value="Привет! Чем могу помочь?" />
       </div>
     </div>
   </div>
 
+  <!-- 03: Нейросеть -->
   <div class="form-section">
-    <div class="section-title">03 — ИИ-модель</div>
-    <h3>Какая модель будет отвечать?</h3>
-
-    <div class="form-grid">
-      <div class="field">
-        <label>Провайдер</label>
-        <select class="select" name="llm_provider" id="provider">
-          <option value="gigachat">GigaChat (Сбер, бесплатно)</option>
-          <option value="openai">OpenAI · GPT</option>
-          <option value="anthropic">Anthropic · Claude</option>
-        </select>
+    <div class="section-title">03 — Нейросеть</div>
+    <h3>Какой ИИ будет <span style="color: var(--emerald)">отвечать</span>?</h3>
+    <div class="llm-cards" style="margin-top:16px;" id="llmCards">
+      <div class="llm-card selected" data-prov="gigachat" data-model="GigaChat">
+        <span class="ic">🇷🇺</span>
+        <div class="nm">GigaChat</div>
+        <div class="prov">Сбер · Россия</div>
+        <span class="badge free">Бесплатно</span>
       </div>
-      <div class="field">
-        <label>Модель</label>
-        <input class="input mono" name="llm_model" id="model" value="GigaChat" />
+      <div class="llm-card" data-prov="openai" data-model="gpt-4o-mini">
+        <span class="ic">🤖</span>
+        <div class="nm">GPT-4o mini</div>
+        <div class="prov">OpenAI · США</div>
+        <span class="badge paid">Платно · нужен ключ</span>
       </div>
-      <div class="field col-2">
-        <label>Температура <span class="hint">0 = точный, 1 = креативный · рекомендуем 0.3</span></label>
-        <input class="input mono" type="number" name="temperature" value="0.3" step="0.1" min="0" max="1" />
+      <div class="llm-card" data-prov="openai" data-model="gpt-4o">
+        <span class="ic">✨</span>
+        <div class="nm">GPT-4o</div>
+        <div class="prov">OpenAI · США</div>
+        <span class="badge paid">Платно · умнее</span>
       </div>
+    </div>
+    <div class="field" style="margin-top:16px;">
+      <label>Точность ответов (температура) <span class="hint">0 = точный, 1 = творческий</span></label>
+      <div style="display:grid; grid-template-columns:1fr 80px; gap:12px; align-items:center;">
+        <input type="range" id="tempSlider" min="0" max="10" value="3"
+          style="width:100%; accent-color: var(--emerald);"
+          oninput="document.getElementById('tempVal').textContent=(this.value/10).toFixed(1);
+                   document.getElementById('temp_hidden').value=(this.value/10).toFixed(1);" />
+        <span class="mono" id="tempVal" style="text-align:center; font-size:20px; color:var(--emerald);">0.3</span>
+      </div>
+      <input type="hidden" name="temperature" id="temp_hidden" value="0.3" />
+      <div class="field-hint">Рекомендуем 0.3 для точных ответов, 0.7 для живой речи.</div>
     </div>
   </div>
 
+  <!-- 04: Telegram -->
   <div class="form-section">
     <div class="section-title">04 — Telegram</div>
     <h3>Подключить <span style="color: var(--emerald)">канал</span>?</h3>
-    <p style="margin-bottom: 14px; color: var(--ink-soft); font-size: 14px; line-height: 1.55;">
-      Чтобы получить токен — напишите <a href="https://t.me/BotFather" target="_blank" style="color: var(--emerald);">@BotFather</a> в Telegram, отправьте <code style="background: var(--paper-deep); padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 13px;">/newbot</code>, придумайте имя — получите токен. Поле можно оставить пустым и заполнить позже.
+    <p style="font-size:14px; color:var(--ink-soft); margin:10px 0 16px; line-height:1.55;">
+      Получите токен у <a href="https://t.me/BotFather" target="_blank" style="color:var(--emerald);">@BotFather</a>:
+      напишите <code style="background:var(--paper-deep);padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;">/newbot</code>,
+      придумайте имя → получите токен. Можно добавить позже.
     </p>
-
-    <div class="form-grid full">
-      <div class="field">
-        <label>Bot Token <span class="hint">формат: 1234567890:ABC...</span></label>
-        <input class="input mono" name="telegram_token" placeholder="1234567890:AAA-BBB_xxx..." />
-      </div>
+    <div class="field">
+      <label>Bot Token <span class="hint">формат: 1234567890:ABC…</span></label>
+      <input class="input mono" name="telegram_token" placeholder="1234567890:AAA-BBB_xxx..." />
     </div>
   </div>
 
-  <div class="btn-row" style="margin-top: 24px; padding-bottom: 60px;">
-    <button type="submit" class="btn primary large">Создать бота →</button>
+  <!-- Кнопка -->
+  <div class="btn-row" style="margin-top:28px; padding-bottom:60px;">
+    <button type="submit" class="btn primary large">Создать бота и запустить →</button>
     <a href="/" class="btn ghost">Отмена</a>
   </div>
 </form>
 
 <script>
-  const providerModels = {
-    gigachat: "GigaChat",
-    openai: "gpt-4o-mini",
-    anthropic: "claude-3-5-haiku-20241022",
-  };
-  document.getElementById('provider').addEventListener('change', e => {
-    document.getElementById('model').value = providerModels[e.target.value] || '';
+document.querySelectorAll('.llm-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.llm-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    document.getElementById('llm_provider_input').value = card.dataset.prov;
+    document.getElementById('llm_model_input').value = card.dataset.model;
   });
+});
 </script>
-
 {% endblock %}
