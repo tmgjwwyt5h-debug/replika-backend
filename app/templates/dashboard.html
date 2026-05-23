@@ -45,6 +45,16 @@
       </div>
       <div class="name">{{ bot.name }}</div>
       <div class="desc">{{ bot.description or "Без описания" }}</div>
+      <div style="margin-bottom:12px;">
+        <a href="/bots/{{ bot.id }}/chat" target="_blank"
+           onclick="event.stopPropagation();"
+           style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.1em;
+                  text-transform:uppercase;color:var(--emerald);text-decoration:none;
+                  padding:4px 10px;border:1px solid rgba(27,110,75,0.3);border-radius:999px;
+                  display:inline-flex;align-items:center;gap:6px;">
+          💬 Тестировать
+        </a>
+      </div>
       <div class="meta">
         <span>{{ bot.llm_provider }} · <b>{{ bot.llm_model }}</b></span>
         <span><b>{{ bot.total_messages }}</b> сообщ.</span>
