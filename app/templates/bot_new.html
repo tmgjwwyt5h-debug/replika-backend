@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Новый бот — Реплика{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div class="eyebrow">ШАГ 01 · НАСТРОЙКА</div>
+  <h1>Создать <span class="accent">бота</span>.</h1>
+  <p class="lede">Заполните основные параметры. Telegram-токен можно добавить сейчас или позже — бот сразу попробует подключиться к каналу.</p>
+</div>
+
+<form method="POST" action="/bots/new">
+
+  <div class="form-section">
+    <div class="section-title">01 — Имя и контекст</div>
+    <h3>Кто этот бот?</h3>
+
+    <div class="form-grid">
+      <div class="field">
+        <label>Имя бота <span class="req">*</span></label>
+        <input class="input" name="name" required placeholder="Роза, Алиса, Алекс…" />
+      </div>
+      <div class="field">
+        <label>Индустрия</label>
+        <select class="select" name="industry">
+          <option value="general">Общее</option>
+          <option value="medical">Медицина / стоматология</option>
+          <option value="legal">Юр. услуги</option>
+          <option value="auto">Авто / автосалон</option>
+          <option value="beauty">Бьюти / салоны</option>
+          <option value="horeca">HoReCa / рестораны</option>
+          <option value="real-estate">Недвижимость</option>
+          <option value="ecom">Интернет-магазин</option>
+          <option value="education">Образование</option>
+        </select>
+      </div>
+      <div class="field col-2">
+        <label>Краткое описание <span class="hint">видно только вам в админке</span></label>
+        <input class="input" name="description" placeholder="Принимает входящие в стоматологию ‘Северные ворота’ в Казани" />
+      </div>
+    </div>
+  </div>
+
+  <div class="form-section">
+    <div class="section-title">02 — Поведение</div>
+    <h3>Как он должен <span style="color: var(--emerald)">говорить</span>?</h3>
+
+    <div class="form-grid full">
+      <div class="field">
+        <label>System prompt — кто бот, как себя ведёт <span class="req">*</span></label>
+        <textarea class="textarea large" name="system_prompt" required placeholder="Ты — Роза, голосовой помощник стоматологии «Северные ворота» в Казани.
+
+Твоя задача — принимать звонки и записывать пациентов на приём. Будь дружелюбной, краткой, отвечай по делу.
+
+ПРАВИЛА:
+- Никогда не ставь диагнозы, не давай мед. советов
+- Если боль сильная — сразу предложи экстренный приём в течение 24 часов
+- Подтверждай дату/время/имя врача обратно пациенту
+- Спрашивай про ДМС перед бронированием</textarea>
+      </div>
+      <div class="field">
+        <label>Приветствие <span class="hint">первое сообщение</span></label>
+        <input class="input" name="greeting" value="Здравствуйте! Меня зовут Роза, я помощник клиники. Чем могу помочь?" />
+      </div>
+    </div>
+  </div>
+
+  <div class="form-section">
+    <div class="section-title">03 — ИИ-модель</div>
+    <h3>Какая модель будет отвечать?</h3>
+
+    <div class="form-grid">
+      <div class="field">
+        <label>Провайдер</label>
+        <select class="select" name="llm_provider" id="provider">
+          <option value="gigachat">GigaChat (Сбер, бесплатно)</option>
+          <option value="openai">OpenAI · GPT</option>
+          <option value="anthropic">Anthropic · Claude</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Модель</label>
+        <input class="input mono" name="llm_model" id="model" value="GigaChat" />
+      </div>
+      <div class="field col-2">
+        <label>Температура <span class="hint">0 = точный, 1 = креативный · рекомендуем 0.3</span></label>
+        <input class="input mono" type="number" name="temperature" value="0.3" step="0.1" min="0" max="1" />
+      </div>
+    </div>
+  </div>
+
+  <div class="form-section">
+    <div class="section-title">04 — Telegram</div>
+    <h3>Подключить <span style="color: var(--emerald)">канал</span>?</h3>
+    <p style="margin-bottom: 14px; color: var(--ink-soft); font-size: 14px; line-height: 1.55;">
+      Чтобы получить токен — напишите <a href="https://t.me/BotFather" target="_blank" style="color: var(--emerald);">@BotFather</a> в Telegram, отправьте <code style="background: var(--paper-deep); padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 13px;">/newbot</code>, придумайте имя — получите токен. Поле можно оставить пустым и заполнить позже.
+    </p>
+
+    <div class="form-grid full">
+      <div class="field">
+        <label>Bot Token <span class="hint">формат: 1234567890:ABC...</span></label>
+        <input class="input mono" name="telegram_token" placeholder="1234567890:AAA-BBB_xxx..." />
+      </div>
+    </div>
+  </div>
+
+  <div class="btn-row" style="margin-top: 24px; padding-bottom: 60px;">
+    <button type="submit" class="btn primary large">Создать бота →</button>
+    <a href="/" class="btn ghost">Отмена</a>
+  </div>
+</form>
+
+<script>
+  const providerModels = {
+    gigachat: "GigaChat",
+    openai: "gpt-4o-mini",
+    anthropic: "claude-3-5-haiku-20241022",
+  };
+  document.getElementById('provider').addEventListener('change', e => {
+    document.getElementById('model').value = providerModels[e.target.value] || '';
+  });
+</script>
+
+{% endblock %}

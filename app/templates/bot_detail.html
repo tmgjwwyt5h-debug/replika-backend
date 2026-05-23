@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block title %}{{ bot.name }} — Реплика{% endblock %}
+
+{% block content %}
+
+<div class="bot-head">
+  <div class="avatar">{{ bot.name[0]|upper }}</div>
+  <div class="info">
+    <div class="eyebrow">
+      {% if bot.status == "active" %}
+        <span style="color: var(--emerald);">● В ЭФИРЕ</span> · ВСЕГО {{ bot.total_messages }} СООБЩ.
+      {% elif bot.status == "draft" %}
+        ЧЕРНОВИК · ЕЩЁ НЕ ЗАПУЩЕН
+      {% elif bot.status == "paused" %}
+        ПАУЗА · {{ bot.total_messages }} СООБЩ.
+      {% elif bot.status == "error" %}
+        <span style="color: var(--rust);">ОШИБКА</span> · {{ bot.last_error[:80] if bot.last_error else "" }}
+      {% endif %}
+    </div>
+    <h1>{{ bot.name }}</h1>
+    <div class="meta">
+      {{ bot.llm_provider }} · {{ bot.llm_model }}
+      {% if bot.telegram_username %}
+        · <a href="https://t.me/{{ bot.telegram_username }}" target="_blank">@{{ bot.telegram_username }}</a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="actions btn-row">
+    {% if bot.telegram_token %}
+      {% if is_running %}
+        <form method="POST" action="/bots/{{ bot.id }}/stop" style="display:inline">
+          <button class="btn">⏸ Остановить</button>
+        </form>
+      {% else %}
+        <form method="POST" action="/bots/{{ bot.id }}/start" style="display:inline">
+          <button class="btn primary">▶ Запустить</button>
+        </form>
+      {% endif %}
+    {% endif %}
+    <form method="POST" action="/bots/{{ bot.id }}/delete" style="display:inline" onsubmit="return confirm('Удалить бота и всю историю? Это необратимо.')">
+      <button class="btn danger">Удалить</button>
+    </form>
+  </div>
+</div>
+
+<div class="detail-grid">
+
+  <!-- LEFT COLUMN: настройки + знания + диалоги -->
+  <div>
+
+    <!-- НАСТРОЙКИ БОТА -->
+    <form method="POST" action="/bots/{{ bot.id }}/edit">
+      <div class="form-section">
+        <div class="section-title">01 — Настройки</div>
+        <h3>Параметры бота</h3>
+
+        <div class="form-grid">
+          <div class="field">
+            <label>Имя</label>
+            <input class="input" name="name" value="{{ bot.name }}" required />
+          </div>
+          <div class="field">
+            <label>Индустрия</label>
+            <select class="select" name="industry">
+              {% for k, v in [("general","Общее"), ("medical","Медицина"), ("legal","Юр."), ("auto","Авто"), ("beauty","Бьюти"), ("horeca","HoReCa"), ("real-estate","Недвиж."), ("ecom","E-com"), ("education","Образ.")] %}
+                <option value="{{ k }}" {% if bot.industry == k %}selected{% endif %}>{{ v }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field col-2">
+            <label>Краткое описание</label>
+            <input class="input" name="description" value="{{ bot.description }}" />
+          </div>
+          <div class="field col-2">
+            <label>System prompt <span class="req">*</span></label>
+            <textarea class="textarea large" name="system_prompt" required>{{ bot.system_prompt }}</textarea>
+          </div>
+          <div class="field col-2">
+            <label>Приветствие</label>
+            <input class="input" name="greeting" value="{{ bot.greeting }}" />
+          </div>
+          <div class="field">
+            <label>Провайдер</label>
+            <select class="select" name="llm_provider">
+              <option value="gigachat" {% if bot.llm_provider == "gigachat" %}selected{% endif %}>GigaChat (Сбер)</option>
+              <option value="openai" {% if bot.llm_provider == "openai" %}selected{% endif %}>OpenAI · GPT</option>
+              <option value="anthropic" {% if bot.llm_provider == "anthropic" %}selected{% endif %}>Anthropic · Claude</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Модель</label>
+            <input class="input mono" name="llm_model" value="{{ bot.llm_model }}" />
+          </div>
+          <div class="field">
+            <label>Температура <span class="hint">0–1</span></label>
+            <input class="input mono" type="number" name="temperature" value="{{ bot.temperature }}" step="0.1" min="0" max="1" />
+          </div>
+          <div class="field">
+            <label>Telegram token <span class="hint">от @BotFather</span></label>
+            <input class="input mono" name="telegram_token" value="{{ bot.telegram_token or '' }}" placeholder="1234:AA…" />
+          </div>
+        </div>
+
+        <div class="btn-row" style="margin-top: 18px;">
+          <button type="submit" class="btn primary">Сохранить</button>
+          <a href="/" class="btn ghost">К списку</a>
+        </div>
+      </div>
+    </form>
+
+    <!-- БАЗА ЗНАНИЙ -->
+    <div class="form-section" id="knowledge">
+      <div class="section-title">02 — База знаний</div>
+      <h3>Что бот должен <span style="color: var(--emerald)">знать</span>?</h3>
+      <p style="color: var(--ink-soft); font-size: 14px; margin-bottom: 14px;">
+        Куски текста, которые добавятся в каждый запрос. Прайс-лист, FAQ, режим работы, врачи и услуги — что угодно. Бот будет отвечать строго по этой информации.
+      </p>
+
+      <form method="POST" action="/bots/{{ bot.id }}/knowledge">
+        <div class="form-grid">
+          <div class="field col-2">
+            <label>Название <span class="req">*</span></label>
+            <input class="input" name="title" placeholder="Прайс-лист на 2026 год" required />
+          </div>
+          <div class="field col-2">
+            <label>Содержимое <span class="req">*</span></label>
+            <textarea class="textarea" name="content" placeholder="Чистка зубов — 4200 ₽&#10;Лечение кариеса — от 6500 ₽&#10;Имплантация — от 45000 ₽&#10;Консультация — бесплатно при последующем лечении" required></textarea>
+          </div>
+        </div>
+        <button type="submit" class="btn">+ Добавить</button>
+      </form>
+
+      <div class="kb-list">
+        {% for k in knowledge %}
+          <div class="kb-item">
+            <div>
+              <div class="ttl">{{ k.title }}</div>
+              <div class="body">{{ k.content }}</div>
+            </div>
+            <form method="POST" action="/bots/{{ bot.id }}/knowledge/{{ k.id }}/delete" onsubmit="return confirm('Удалить?')">
+              <button>удалить</button>
+            </form>
+          </div>
+        {% else %}
+          <div style="text-align: center; color: var(--ink-mute); padding: 24px; font-size: 14px;">База знаний пока пустая</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- ДИАЛОГИ -->
+    <div class="form-section">
+      <div class="section-title">03 — Последние диалоги</div>
+      <h3>История общения</h3>
+
+      <div class="conv-list">
+        {% for c in conversations %}
+          <a href="/bots/{{ bot.id }}/conversations/{{ c.id }}" class="conv-item">
+            <div class="who">
+              {{ c.user_name or "Аноним" }}
+              {% if c.user_username %}<span class="uname">@{{ c.user_username }}</span>{% endif %}
+            </div>
+            <span class="ch">{{ c.channel }}</span>
+            <span class="when">{{ c.last_message_at.strftime("%d.%m %H:%M") }}</span>
+          </a>
+        {% else %}
+          <div style="text-align: center; color: var(--ink-mute); padding: 24px; font-size: 14px;">Диалогов ещё не было</div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT COLUMN: тестовый чат -->
+  <div>
+    <div class="test-panel">
+      <div class="test-head">
+        <div class="ttl">Тест-чат с {{ bot.name }}</div>
+        <div class="sub">проверьте бота прямо здесь, без Telegram</div>
+      </div>
+      <div class="chat-window" id="chatWindow">
+        <div class="bubble bot">{{ bot.greeting }}</div>
+      </div>
+      <div class="chat-input">
+        <form
+          hx-post="/bots/{{ bot.id }}/test"
+          hx-target="#chatWindow"
+          hx-swap="beforeend"
+          hx-on::after-request="this.reset(); document.getElementById('chatWindow').scrollTop = document.getElementById('chatWindow').scrollHeight;">
+          <input
+            type="text"
+            name="message"
+            placeholder="Напишите сообщение…"
+            required
+            autocomplete="off" />
+          <input type="hidden" name="session_id" value="admin-test-{{ bot.id }}" />
+          <button type="submit">→</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{% if bot.last_error %}
+  <div class="flash err" style="margin-top: 24px;">
+    <b>Последняя ошибка:</b> {{ bot.last_error }}
+  </div>
+{% endif %}
+
+{% endblock %}

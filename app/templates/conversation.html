@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Диалог с {{ conversation.user_name or "пользователем" }} — {{ bot.name }}{% endblock %}
+
+{% block content %}
+
+<div class="page-head">
+  <div class="eyebrow">ДИАЛОГ · {{ conversation.channel|upper }} · ID {{ conversation.id }}</div>
+  <h1>{{ conversation.user_name or "Аноним" }} <span style="color: var(--ink-mute); font-size: 0.5em;">↔ {{ bot.name }}</span></h1>
+  <p class="lede">
+    Начало: {{ conversation.created_at.strftime("%d.%m.%Y %H:%M") }} ·
+    Последнее сообщение: {{ conversation.last_message_at.strftime("%d.%m.%Y %H:%M") }} ·
+    Всего сообщений: {{ messages|length }}
+    {% if conversation.user_username %} · @{{ conversation.user_username }}{% endif %}
+  </p>
+</div>
+
+<a href="/bots/{{ bot.id }}" class="btn ghost" style="margin-bottom: 16px;">← Назад к боту</a>
+
+<div class="conv-window">
+  {% for m in messages %}
+    {% if m.role == "user" %}
+      <div class="bubble user">{{ m.content }}</div>
+    {% elif m.role == "assistant" %}
+      <div class="bubble bot">{{ m.content }}</div>
+    {% endif %}
+    {% if loop.last or (loop.nextitem and (loop.nextitem.created_at - m.created_at).total_seconds() > 300) %}
+      <div class="timestamp">{{ m.created_at.strftime("%d.%m %H:%M") }}{% if m.tokens_used %} · {{ m.tokens_used }} ток.{% endif %}</div>
+    {% endif %}
+  {% endfor %}
+</div>
+
+{% endblock %}

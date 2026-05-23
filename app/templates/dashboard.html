@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Боты — Реплика{% endblock %}
+
+{% block content %}
+
+<div class="page-head">
+  <div class="eyebrow">ПЛАТФОРМА · ВЕРСИЯ 0.1 MVP</div>
+  <h1>Ваши <span class="accent">боты</span>.</h1>
+  <p class="lede">Создавайте чат-ботов на GigaChat и подключайте их к Telegram. База знаний, тестовый чат и история диалогов — в одном окне.</p>
+</div>
+
+<div class="stats-strip">
+  <div class="stat">
+    <div class="k">Всего ботов</div>
+    <div class="v">{{ bots|length }}</div>
+  </div>
+  <div class="stat">
+    <div class="k">Активных</div>
+    <div class="v"><span class="em">{{ active_count }}</span></div>
+  </div>
+  <div class="stat">
+    <div class="k">Запущено сейчас</div>
+    <div class="v">{{ running_ids|length }}</div>
+  </div>
+  <div class="stat">
+    <div class="k">Сообщений всего</div>
+    <div class="v">{{ total_messages }}</div>
+  </div>
+</div>
+
+<div class="bots-grid">
+  {% for bot in bots %}
+    <a href="/bots/{{ bot.id }}" class="bot-card">
+      <div class="head">
+        <div class="bot-avatar">{{ bot.name[0]|upper }}</div>
+        {% if bot.status == "active" %}
+          <span class="bot-status active"><span class="blip"></span> в эфире</span>
+        {% elif bot.status == "draft" %}
+          <span class="bot-status draft">черновик</span>
+        {% elif bot.status == "paused" %}
+          <span class="bot-status paused">пауза</span>
+        {% elif bot.status == "error" %}
+          <span class="bot-status error">ошибка</span>
+        {% endif %}
+      </div>
+      <div class="name">{{ bot.name }}</div>
+      <div class="desc">{{ bot.description or "Без описания" }}</div>
+      <div class="meta">
+        <span>{{ bot.llm_provider }} · <b>{{ bot.llm_model }}</b></span>
+        <span><b>{{ bot.total_messages }}</b> сообщ.</span>
+      </div>
+    </a>
+  {% endfor %}
+
+  <a href="/bots/new" class="bot-card empty">
+    <div class="empty-icon">+</div>
+    <div class="head-text">Создать бота</div>
+    <div class="sub">Telegram · GigaChat · 2 минуты</div>
+  </a>
+</div>
+
+{% endblock %}
