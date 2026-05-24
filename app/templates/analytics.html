@@ -1,140 +1,115 @@
 {% extends "base.html" %}
 {% block title %}Аналитика — Реплика{% endblock %}
-{% block crumbs %}реплика.платформа <span class="sep">/</span> <span class="here">Аналитика</span>{% endblock %}
-{% block topbar_actions %}
-<span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;">Последние {{ a.days }} дней</span>
-{% endblock %}
-
+{% block page_title %}Аналитика{% endblock %}
 {% block content %}
 <div class="page-head fade-up">
-  <div class="eyebrow">Статистика платформы</div>
-  <h1>Аналитика <span class="accent">ботов</span>.</h1>
-  <p class="lede">Сообщения, конверсии и активность по всем ботам за последние {{ a.days }} дней.</p>
+  <div class="eyebrow">Аналитика · последние 30 дней</div>
+  <h1>Как работают <span class="accent">ваши боты</span>.</h1>
 </div>
 
-<div class="stats-strip fade-up d1">
-  <div class="stat">
-    <div class="k">Сообщений получено</div>
-    <div class="v">{{ a.total_msgs }}</div>
-    <div class="delta">↑ за все время</div>
+<div class="kpi-grid">
+  <div class="kpi fade-up d1">
+    <div class="k">Всего сообщений</div>
+    <div class="v">{{ stats.total_messages }}<span class="u">шт</span></div>
+    <div class="delta up">↑ сегодня {{ stats.today_messages }}</div>
   </div>
-  <div class="stat">
-    <div class="k">Уникальных пользователей</div>
-    <div class="v">{{ a.unique_users }}</div>
-    <div class="delta">↑ все каналы</div>
+  <div class="kpi fade-up d2">
+    <div class="k">Активных диалогов</div>
+    <div class="v">{{ stats.total_conversations }}</div>
+    <div class="delta up">↑ за неделю {{ stats.week_conversations }}</div>
   </div>
-  <div class="stat">
-    <div class="k">Диалогов всего</div>
-    <div class="v">{{ a.total_convs }}</div>
-    <div class="delta">↑ суммарно</div>
+  <div class="kpi fade-up d3">
+    <div class="k">Токенов использовано</div>
+    <div class="v">{{ "{:,}".format(stats.total_tokens).replace(",", " ") }}</div>
+    <div class="delta {{ 'up' if stats.tokens_pct < 50 else 'down' }}">{{ stats.tokens_pct }}% от лимита</div>
   </div>
-  <div class="stat">
-    <div class="k">Токенов потрачено</div>
-    <div class="v">{{ "{:,}".format(a.total_tokens).replace(",", " ") }}</div>
-    <div class="delta">≈ ₽{{ "%.2f"|format(a.total_tokens * 0.0004) }}</div>
+  <div class="kpi fade-up d4">
+    <div class="k">Активных ботов</div>
+    <div class="v">{{ stats.active_bots }}<span class="u">/ {{ stats.total_bots }}</span></div>
+    <div class="delta up">{{ stats.total_bots - stats.active_bots }} в режиме черновика</div>
   </div>
 </div>
 
-<div class="analytics-grid fade-up d2">
-  <!-- График сообщений -->
-  <div class="chart-card">
-    <div class="card-head">
-      <div class="card-title">Сообщения по дням</div>
-      <div class="card-sub">пользовательские запросы</div>
+<!-- Chart -->
+<div class="chart-card fade-up">
+  <div class="chart-head">
+    <h3>Сообщения за 14 дней</h3>
+    <div class="chart-legend">
+      <div class="item"><span class="dot" style="background:var(--emerald)"></span> Входящие</div>
+      <div class="item"><span class="dot" style="background:var(--mint)"></span> Ответы бота</div>
     </div>
-    {% if a.daily_msgs %}
-    <svg class="chart-svg" viewBox="0 0 600 180" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="grad" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stop-color="#1B6E4B" stop-opacity="0.25"/>
-          <stop offset="100%" stop-color="#1B6E4B" stop-opacity="0"/>
-        </linearGradient>
-      </defs>
-      <!-- Grid lines -->
-      {% for i in [0,1,2,3] %}
-      <line x1="0" y1="{{ 45 * i }}" x2="600" y2="{{ 45 * i }}" stroke="rgba(20,17,13,0.07)" stroke-width="1"/>
-      {% endfor %}
-      <!-- Data -->
-      {% set vals = a.daily_msgs.values()|list %}
-      {% set max_v = [vals|max, 1]|max %}
-      {% set n = vals|length %}
-      {% if n > 1 %}
-        {% set pts = [] %}
-        {% for v in vals %}
-          {% set x = (loop.index0 / (n - 1)) * 560 + 20 %}
-          {% set y = 160 - (v / max_v) * 140 %}
-          {% if pts.append(x|string + "," + y|string) %}{% endif %}
-        {% endfor %}
-        <path d="M {{ pts|join(' L ') }} L {{ (560 + 20)|string }},160 L 20,160 Z" fill="url(#grad)"/>
-        <path d="M {{ pts|join(' L ') }}" stroke="#1B6E4B" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-        {% for v in vals %}
-          {% set x = (loop.index0 / (n - 1)) * 560 + 20 %}
-          {% set y = 160 - (v / max_v) * 140 %}
-          <circle cx="{{ x }}" cy="{{ y }}" r="3" fill="#1B6E4B"/>
-        {% endfor %}
-      {% endif %}
-      <!-- X labels -->
-      {% for day in a.daily_msgs.keys() %}
-        {% if loop.index0 % 5 == 0 %}
-          {% set x = (loop.index0 / ([a.daily_msgs|length - 1, 1]|max)) * 560 + 20 %}
-          <text x="{{ x }}" y="175" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="#8A8174">{{ day }}</text>
-        {% endif %}
-      {% endfor %}
-    </svg>
-    {% else %}
-    <div style="text-align:center;padding:40px;color:var(--ink-mute);font-size:14px;">
-      Сообщений ещё нет. Создайте бота и начните тестировать.
-    </div>
-    {% endif %}
   </div>
-
-  <!-- Топ ботов -->
-  <div class="table-card">
-    <div class="table-head">
-      <div class="title">Топ ботов</div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-mute);letter-spacing:0.1em;text-transform:uppercase;">по сообщениям</div>
-    </div>
-    {% set max_msgs = 1 %}
-    {% for bot_id, count in a.top_bots %}{% if count > max_msgs %}{% set max_msgs = count %}{% endif %}{% endfor %}
-    {% for bot_id, count in a.top_bots %}
-      {% set pct = (count / [max_msgs,1]|max * 100)|int %}
-      <div class="table-row">
-        <div class="label">
-          {{ bots_map.get(bot_id, {}).get('name', 'Бот #' ~ bot_id) }}
-        </div>
-        <div class="bar-wrap"><div class="bar-fill" style="width:{{ pct }}%"></div></div>
-        <div class="count">{{ count }}</div>
-      </div>
-    {% else %}
-      <div style="padding:20px;text-align:center;color:var(--ink-mute);font-size:14px;">Нет данных</div>
+  <svg viewBox="0 0 700 160" style="width:100%;height:160px;">
+    <defs>
+      <linearGradient id="gE" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0%" stop-color="#1B6E4B" stop-opacity=".25"/>
+        <stop offset="100%" stop-color="#1B6E4B" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <!-- Grid -->
+    {% for y in [20, 60, 100, 140] %}
+    <line x1="0" y1="{{ y }}" x2="700" y2="{{ y }}" stroke="rgba(20,17,13,0.07)" stroke-width="1"/>
     {% endfor %}
-  </div>
+    <!-- Area -->
+    {% if chart_points %}
+    <path d="{{ chart_area }}" fill="url(#gE)"/>
+    <path d="{{ chart_line }}" stroke="#1B6E4B" stroke-width="2.5" fill="none" stroke-linejoin="round"/>
+    {% for p in chart_points %}
+    <circle cx="{{ p.x }}" cy="{{ p.y }}" r="4" fill="#1B6E4B"/>
+    {% endfor %}
+    {% else %}
+    <text x="350" y="80" text-anchor="middle" font-family="JetBrains Mono" font-size="12" fill="#8A8174">Нет данных — создайте бота и начните диалоги</text>
+    {% endif %}
+    <!-- X labels -->
+    {% for l in chart_labels %}
+    <text x="{{ l.x }}" y="158" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="#8A8174">{{ l.label }}</text>
+    {% endfor %}
+  </svg>
 </div>
 
-<!-- Боты подробно -->
-<div class="table-card fade-up d3">
-  <div class="table-head">
-    <div class="title">Все боты</div>
-    <a href="/bots/new" class="btn sm primary">+ Создать</a>
-  </div>
-  {% for bot in all_bots %}
-  <div class="table-row" style="grid-template-columns:auto 1fr auto auto auto;">
-    <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--emerald),var(--emerald-deep));color:var(--paper);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">{{ bot.name[0]|upper }}</div>
-    <div class="label">
-      <a href="/bots/{{ bot.id }}" style="color:var(--ink);text-decoration:none;">{{ bot.name }}</a>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--ink-mute);margin-top:1px;text-transform:uppercase;letter-spacing:0.06em;">{{ bot.llm_provider }} · {{ bot.industry }}</div>
-    </div>
-    <div class="count">{{ bot.total_messages }} сообщ.</div>
-    <div>
-      {% if bot.status == "active" %}<span class="bot-status active"><span class="blip"></span>активен</span>
-      {% elif bot.status == "draft" %}<span class="bot-status draft">черновик</span>
-      {% elif bot.status == "error" %}<span class="bot-status error">ошибка</span>
-      {% else %}<span class="bot-status paused">пауза</span>{% endif %}
-    </div>
-    <div><a href="/bots/{{ bot.id }}/chat" class="btn sm ghost" target="_blank">Тест</a></div>
-  </div>
-  {% else %}
-  <div style="padding:24px;text-align:center;color:var(--ink-mute);">Нет ботов. <a href="/bots/new" style="color:var(--emerald);">Создать первого →</a></div>
-  {% endfor %}
+<!-- Per-bot table -->
+<div class="section-label">Статистика по ботам</div>
+{% if bot_stats %}
+<div class="table-wrap fade-up">
+  <table>
+    <thead>
+      <tr>
+        <th>Бот</th>
+        <th>Статус</th>
+        <th>Диалогов</th>
+        <th>Сообщений</th>
+        <th>Токенов</th>
+        <th>Канал</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in bot_stats %}
+      <tr>
+        <td>
+          <a href="/bots/{{ b.id }}" style="color:var(--ink);text-decoration:none;font-weight:600;">
+            {{ b.name }}
+          </a>
+        </td>
+        <td>
+          <span class="tag {{ 'green' if b.status == 'active' else 'orange' if b.status == 'paused' else 'gray' }}">
+            {{ b.status }}
+          </span>
+        </td>
+        <td class="mono">{{ b.conversations }}</td>
+        <td class="mono">{{ b.total_messages }}</td>
+        <td class="mono">{{ "{:,}".format(b.tokens).replace(",", " ") }}</td>
+        <td><span class="tag gray">{{ b.llm_provider }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
+{% else %}
+<div class="empty-state">
+  <div class="ic">📊</div>
+  <div class="title">Нет данных для анализа</div>
+  <div class="sub">Создайте бота, запустите его в Telegram и начните диалоги — здесь появится статистика.</div>
+  <a href="/bots/new" class="btn primary">Создать бота</a>
+</div>
+{% endif %}
 {% endblock %}
