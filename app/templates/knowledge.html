@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}База знаний — Реплика{% endblock %}
+{% block crumbs %}реплика.платформа <span class="sep">/</span> <span class="here">База знаний</span>{% endblock %}
+{% block topbar_actions %}
+<span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-mute);letter-spacing:0.08em;text-transform:uppercase;">{{ chunks|length }} записей</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-head fade-up">
+  <div class="eyebrow">Управление знаниями</div>
+  <h1>База <span class="accent">знаний</span>.</h1>
+  <p class="lede">Все тексты и FAQ которые боты используют для ответов. Добавляйте прайс-листы, правила, справочники — боты учатся мгновенно.</p>
+</div>
+
+<!-- Добавить запись -->
+<div class="form-section fade-up d1" style="margin-bottom:28px;">
+  <div class="section-title">Добавить запись</div>
+  <h3>Новый блок <span style="color:var(--emerald)">знаний</span></h3>
+  <form method="POST" action="/knowledge" style="margin-top:16px;">
+    <div class="form-grid">
+      <div class="field">
+        <label>Название <span class="req">*</span></label>
+        <input class="input" name="title" placeholder="Прайс-лист / FAQ / Правила…" required />
+      </div>
+      <div class="field">
+        <label>Привязать к боту <span class="hint">необязательно</span></label>
+        <select class="select" name="bot_id">
+          <option value="">— глобально (все боты) —</option>
+          {% for bot in all_bots %}
+          <option value="{{ bot.id }}">{{ bot.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field col-2">
+        <label>Содержимое <span class="req">*</span></label>
+        <textarea class="textarea large" name="content" required
+          placeholder="Прайс-лист 2026:&#10;- Чистка зубов: от 4 200 ₽&#10;- Консультация: бесплатно&#10;&#10;Или вставьте любой текст — FAQ, регламент, список услуг…"></textarea>
+      </div>
+    </div>
+    <div class="btn-row" style="margin-top:14px;">
+      <button type="submit" class="btn primary">Добавить в базу</button>
+    </div>
+  </form>
+</div>
+
+<!-- Фильтр по ботам -->
+{% if all_bots %}
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;" class="fade-up d2">
+  <a href="/knowledge" class="btn sm {% if not bot_filter %}primary{% else %}ghost{% endif %}">Все</a>
+  {% for bot in all_bots %}
+  <a href="/knowledge?bot={{ bot.id }}" class="btn sm {% if bot_filter == bot.id|string %}primary{% else %}ghost{% endif %}">{{ bot.name }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Список записей -->
+<div class="kb-list fade-up d2">
+  {% for k in chunks %}
+  <div class="kb-item">
+    <div>
+      <div class="ttl">{{ k.title }}</div>
+      <div class="body">{{ k.content[:300] }}{% if k.content|length > 300 %}…{% endif %}</div>
+      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+        {% if bots_map.get(k.bot_id) %}
+          <span class="kb-tag">{{ bots_map[k.bot_id]['name'] }}</span>
+        {% else %}
+          <span class="kb-tag" style="background:rgba(90,155,197,0.12);color:var(--steel);">глобально</span>
+        {% endif %}
+        <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-mute);">{{ k.created_at.strftime("%d.%m.%Y") }} · {{ k.content|length }} симв.</span>
+      </div>
+    </div>
+    <form method="POST" action="/knowledge/{{ k.id }}/delete" onsubmit="return confirm('Удалить?')">
+      <button type="submit">удалить</button>
+    </form>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:48px;color:var(--ink-mute);background:var(--paper);border:1px dashed var(--line);border-radius:14px;">
+    <div style="font-size:28px;margin-bottom:12px;">📚</div>
+    <div style="font-size:15px;margin-bottom:6px;font-variation-settings:'wght' 500;">База знаний пустая</div>
+    <div style="font-size:13px;">Добавьте прайс-лист, FAQ или правила — боты начнут отвечать точнее.</div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
