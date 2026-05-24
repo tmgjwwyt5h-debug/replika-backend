@@ -1,135 +1,108 @@
 {% extends "base.html" %}
 {% block title %}Биллинг — Реплика{% endblock %}
-{% block page_title %}Биллинг{% endblock %}
+{% block crumbs %}<span style="color:var(--t-m)">реплика</span><span class="sep">/</span><span class="here">Биллинг</span>{% endblock %}
+{% block topbar_actions %}<span class="mono" style="font-size:10px;color:var(--t-m);letter-spacing:.1em;text-transform:uppercase;">MVP · Free</span>{% endblock %}
+
 {% block content %}
 <div class="page-head fade-up">
-  <div class="eyebrow">Биллинг · текущий период</div>
-  <h1>Расход <span class="accent">ресурсов</span>.</h1>
-  <p class="lede">Отслеживайте использование токенов GigaChat и других провайдеров. Бесплатный лимит: 1 000 000 токенов/мес.</p>
+  <div class="eyebrow">Тарифы и оплата</div>
+  <h1>Биллинг <span class="accent">& использование</span>.</h1>
+  <p class="lede">Текущий тариф, расход токенов и стоимость работы ботов.</p>
 </div>
 
-<!-- Usage overview -->
-<div class="kpi-grid fade-up">
-  <div class="kpi">
-    <div class="k">Токенов за месяц</div>
-    <div class="v">{{ "{:,}".format(billing.month_tokens).replace(",", " ") }}</div>
-    <div class="delta {{ 'up' if billing.tokens_pct < 60 else 'down' }}">{{ billing.tokens_pct }}% от бесплатного лимита</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;" class="fade-up d1">
+
+  <!-- Текущий план -->
+  <div class="billing-plan">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:var(--mint2);margin-bottom:12px;">● Текущий тариф</div>
+    <h2 style="color:var(--t);margin-bottom:8px;">MVP · Старт</h2>
+    <p style="font-size:14px;color:rgba(247,242,232,.55);line-height:1.58;margin-bottom:18px;">
+      До 5 ботов, до 1 000 сообщений в день. GigaChat бесплатно.
+    </p>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:40px;font-weight:700;color:var(--mint2);letter-spacing:-.03em;">
+      <span style="font-size:.4em;vertical-align:top;margin-top:6px;display:inline-block;color:rgba(247,242,232,.45);">₽</span>0
+      <span style="font-size:.35em;color:rgba(247,242,232,.4);margin-left:6px;">/мес</span>
+    </div>
+    <a href="#plans" class="upgrade-btn" style="margin-top:18px;">Смотреть тарифы →</a>
   </div>
-  <div class="kpi">
-    <div class="k">Осталось бесплатно</div>
-    <div class="v">{{ "{:,}".format(billing.remaining).replace(",", " ") }}</div>
-    <div class="delta up">≈ {{ billing.days_left }} дней по текущему темпу</div>
-  </div>
-  <div class="kpi">
-    <div class="k">Сообщений за месяц</div>
-    <div class="v">{{ billing.month_messages }}</div>
-    <div class="delta up">{{ billing.avg_tokens_per_msg }} ток/сообщ. в среднем</div>
-  </div>
-  <div class="kpi">
-    <div class="k">Стоимость (оценка)</div>
-    <div class="v">₽{{ billing.est_cost }}</div>
-    <div class="delta up">GigaChat бесплатен до лимита</div>
+
+  <!-- Использование -->
+  <div class="usage-card fade-up d2">
+    <h3 style="margin-bottom:16px;">Использование за месяц</h3>
+
+    <div class="usage-row">
+      <span>Боты</span>
+      <span class="mono" style="font-weight:600;">{{ a.total_bots }} / 5</span>
+    </div>
+    <div class="usage-bar-wrap"><div class="usage-bar" style="width:{{ [a.total_bots * 20, 100]|min }}%"></div></div>
+
+    <div class="usage-row" style="margin-top:14px;">
+      <span>Сообщений всего</span>
+      <span class="mono" style="font-weight:600;">{{ a.total_msgs }}</span>
+    </div>
+
+    <div class="usage-row" style="margin-top:10px;">
+      <span>Токенов потрачено</span>
+      <span class="mono" style="font-weight:600;">{{ a.total_tokens }}</span>
+    </div>
+
+    <div class="usage-row" style="margin-top:10px;">
+      <span>Примерная стоимость</span>
+      <span class="mono" style="font-weight:600;color:var(--g-l);">≈ ₽0.00</span>
+    </div>
+
+    <div class="usage-row" style="margin-top:10px;">
+      <span>Активных ботов</span>
+      <span class="mono" style="font-weight:600;">{{ a.active_bots }}</span>
+    </div>
+
+    <div class="usage-row" style="margin-top:10px;">
+      <span>Диалогов всего</span>
+      <span class="mono" style="font-weight:600;">{{ a.total_convs }}</span>
+    </div>
   </div>
 </div>
 
-<!-- Progress bar -->
-<div class="form-section fade-up">
-  <div class="section-title">Использование бесплатного лимита GigaChat</div>
-  <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-mute);margin-bottom:8px;">
-    <span>{{ "{:,}".format(billing.month_tokens).replace(",", " ") }} из 1 000 000 токенов</span>
-    <span>{{ billing.tokens_pct }}%</span>
+<!-- Тарифы -->
+<div id="plans" class="table-card fade-up d3">
+  <div class="table-head">
+    <div class="title">Тарифные планы</div>
+    <div class="mono" style="font-size:10px;color:var(--t-m);letter-spacing:.08em;text-transform:uppercase;">2026</div>
   </div>
-  <div class="usage-bar-wrap">
-    <div class="usage-bar" style="width:{{ [billing.tokens_pct, 100]|min }}%"></div>
+
+  <div class="table-row" style="grid-template-columns:140px 1fr auto;">
+    <div>
+      <div style="font-variation-settings:'wght' 600;font-size:15px;margin-bottom:4px;">Старт</div>
+      <div class="mono" style="font-size:20px;color:var(--g-l);font-weight:700;">Бесплатно</div>
+    </div>
+    <div style="font-size:13.5px;color:var(--t-s);">5 ботов · GigaChat · Тест-чат · Базовая аналитика</div>
+    <span class="mono" style="font-size:10px;padding:5px 12px;background:var(--g-bg);color:var(--g-l);border-radius:999px;border:1px solid var(--g-bd);">Текущий</span>
   </div>
-  <p class="field-hint" style="margin-top:10px;">
-    После исчерпания бесплатного лимита потребуется платный план Сбер.
-    Текущий темп: ~{{ billing.daily_tokens }} токенов/день.
-    При таком расходе лимит закончится через {{ billing.days_left }} дней.
-  </p>
+
+  <div class="table-row" style="grid-template-columns:140px 1fr auto;">
+    <div>
+      <div style="font-variation-settings:'wght' 600;font-size:15px;margin-bottom:4px;">Бизнес</div>
+      <div class="mono" style="font-size:20px;color:var(--g-l);font-weight:700;">₽4 990/мес</div>
+    </div>
+    <div style="font-size:13.5px;color:var(--t-s);">Без лимитов · GPT-4o · Интеграции · Приоритетная поддержка</div>
+    <a href="#" class="btn sm primary">Выбрать</a>
+  </div>
+
+  <div class="table-row" style="grid-template-columns:140px 1fr auto;">
+    <div>
+      <div style="font-variation-settings:'wght' 600;font-size:15px;margin-bottom:4px;">Агентство</div>
+      <div class="mono" style="font-size:20px;color:var(--g-l);font-weight:700;">₽14 990/мес</div>
+    </div>
+    <div style="font-size:13.5px;color:var(--t-s);">Мультиаккаунт · Белая метка · API · SLA 99.9%</div>
+    <a href="#" class="btn sm primary">Выбрать</a>
+  </div>
 </div>
 
-<!-- Per-bot breakdown -->
-<div class="section-label">Расход по ботам</div>
-{% if billing.bot_usage %}
-<div class="table-wrap fade-up">
-  <table>
-    <thead>
-      <tr>
-        <th>Бот</th>
-        <th>Провайдер</th>
-        <th>Сообщений</th>
-        <th>Токенов</th>
-        <th>Доля</th>
-        <th>Оценка стоимости</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for b in billing.bot_usage %}
-      <tr>
-        <td><a href="/bots/{{ b.id }}" style="color:var(--ink);text-decoration:none;font-weight:600;">{{ b.name }}</a></td>
-        <td><span class="tag {{ 'green' if b.provider == 'gigachat' else 'gray' }}">{{ b.provider }}</span></td>
-        <td class="mono">{{ b.messages }}</td>
-        <td class="mono">{{ "{:,}".format(b.tokens).replace(",", " ") }}</td>
-        <td>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <div style="width:80px;height:5px;background:var(--paper-deep);border-radius:3px;overflow:hidden;">
-              <div style="width:{{ b.pct }}%;height:100%;background:var(--emerald);border-radius:3px;"></div>
-            </div>
-            <span class="mono" style="font-size:11px;color:var(--ink-mute);">{{ b.pct }}%</span>
-          </div>
-        </td>
-        <td class="mono">{% if b.provider == 'gigachat' %}бесплатно{% else %}${{ b.est_usd }}{% endif %}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% else %}
-<div class="empty-state">
-  <div class="ic">💰</div>
-  <div class="title">Нет расходов</div>
-  <div class="sub">Создайте бота и начните диалоги — здесь появится статистика расхода токенов.</div>
-</div>
-{% endif %}
-
-<!-- Plans -->
-<div class="section-label" style="margin-top:24px;">Тарифные планы</div>
-<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;" class="fade-up">
-  <div class="tier-card active">
-    <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--emerald);margin-bottom:10px;">Текущий · Бесплатный</div>
-    <div style="font-variation-settings:'wght' 700;font-size:28px;letter-spacing:-.03em;margin-bottom:6px;">₽0</div>
-    <div style="font-size:13px;color:var(--ink-soft);margin-bottom:14px;">в месяц</div>
-    <ul style="font-size:13px;color:var(--ink-soft);line-height:1.8;list-style:none;">
-      <li>✓ 1 000 000 токенов GigaChat</li>
-      <li>✓ До 5 ботов</li>
-      <li>✓ Telegram интеграция</li>
-      <li>✓ База знаний</li>
-    </ul>
-  </div>
-  <div class="tier-card">
-    <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--amber);margin-bottom:10px;">Pro</div>
-    <div style="font-variation-settings:'wght' 700;font-size:28px;letter-spacing:-.03em;margin-bottom:6px;">₽2 990</div>
-    <div style="font-size:13px;color:var(--ink-soft);margin-bottom:14px;">в месяц</div>
-    <ul style="font-size:13px;color:var(--ink-soft);line-height:1.8;list-style:none;">
-      <li>✓ 10 000 000 токенов</li>
-      <li>✓ До 20 ботов</li>
-      <li>✓ GPT-4o доступ</li>
-      <li>✓ Приоритетная поддержка</li>
-    </ul>
-    <a href="#" class="btn" style="width:100%;justify-content:center;margin-top:14px;">Скоро</a>
-  </div>
-  <div class="tier-card">
-    <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--emerald);margin-bottom:10px;">Enterprise</div>
-    <div style="font-variation-settings:'wght' 700;font-size:28px;letter-spacing:-.03em;margin-bottom:6px;">По запросу</div>
-    <div style="font-size:13px;color:var(--ink-soft);margin-bottom:14px;">&nbsp;</div>
-    <ul style="font-size:13px;color:var(--ink-soft);line-height:1.8;list-style:none;">
-      <li>✓ Безлимитные токены</li>
-      <li>✓ Неограниченно ботов</li>
-      <li>✓ Свой LLM / on-premise</li>
-      <li>✓ SLA и выделенная поддержка</li>
-    </ul>
-    <a href="mailto:hi@replika.ai" class="btn emerald" style="width:100%;justify-content:center;margin-top:14px;">Связаться</a>
+<!-- История -->
+<div class="table-card fade-up d4" style="margin-top:12px;">
+  <div class="table-head"><div class="title">История платежей</div></div>
+  <div style="padding:32px;text-align:center;color:var(--t-m);font-size:14px;">
+    Платежей ещё не было — вы на бесплатном тарифе.
   </div>
 </div>
 {% endblock %}
