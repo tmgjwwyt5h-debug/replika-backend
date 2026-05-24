@@ -13,7 +13,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlmodel import select
 
-from app import db, llm, telegram_runner
+from app import db, llm, telegram_runner, integrations as integ_module
+import json as _json
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,6 +45,7 @@ app = FastAPI(title="Реплика · Платформа ботов", lifespan=
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+templates.env.filters["fromjson"] = lambda s: _json.loads(s or "{}")
 
 
 # ============ HEALTH CHECK ============
@@ -122,9 +124,11 @@ async def bot_detail(request: Request, bot_id: int):
             select(db.Conversation).where(db.Conversation.bot_id == bot_id)
             .order_by(db.Conversation.last_message_at.desc()).limit(10)
         ))
+    integrations_list = db.get_bot_integrations(bot_id)
     return templates.TemplateResponse("bot_detail.html", {
         "request": request, "bot": bot, "knowledge": knowledge,
         "conversations": convs, "is_running": telegram_runner.is_running(bot_id),
+        "integrations_count": len([i for i in integrations_list if i.enabled]),
     })
 
 
@@ -314,6 +318,166 @@ async def billing_page(request: Request):
     return templates.TemplateResponse("billing.html", {
         "request": request, "a": a,
     })
+
+
+# ============ INTEGRATIONS ============
+@app.get("/bots/{bot_id}/integrations", response_class=HTMLResponse)
+async def integrations_page(request: Request, bot_id: int):
+    bot = db.get_bot(bot_id)
+    if not bot: raise HTTPException(404)
+    integrations = db.get_bot_integrations(bot_id)
+    integ_map = {i.service: i for i in integrations}
+    return templates.TemplateResponse("integrations.html", {
+        "request": request, "bot": bot, "integ_map": integ_map,
+    })
+
+@app.post("/bots/{bot_id}/integrations/save")
+async def integrations_save(
+    bot_id: int,
+    service:     str  = Form(...),
+    enabled:     str  = Form("1"),
+    # webhook
+    url:         str  = Form(""),
+    secret:      str  = Form(""),
+    # bitrix24
+    webhook_url: str  = Form(""),
+    lead_title:  str  = Form("Лид от бота"),
+    # sheets
+    webapp_url:  str  = Form(""),
+    # email
+    to_email:    str  = Form(""),
+    smtp_user:   str  = Form(""),
+    smtp_pass:   str  = Form(""),
+    smtp_host:   str  = Form("smtp.gmail.com"),
+    smtp_port:   str  = Form("587"),
+):
+    import json as _j
+    cfg_map = {
+        "webhook":  {"url": url.strip(), "secret": secret.strip()},
+        "bitrix24": {"webhook_url": webhook_url.strip(), "lead_title": lead_title.strip()},
+        "sheets":   {"webapp_url": webapp_url.strip()},
+        "email":    {"to_email": to_email.strip(), "smtp_user": smtp_user.strip(),
+                     "smtp_pass": smtp_pass.strip(), "smtp_host": smtp_host, "smtp_port": smtp_port},
+    }
+    cfg = _j.dumps(cfg_map.get(service, {}))
+    is_enabled = enabled == "1"
+
+    with db.get_session() as s:
+        from sqlmodel import select as _sel
+        existing = s.exec(
+            _sel(db.Integration).where(
+                db.Integration.bot_id == bot_id,
+                db.Integration.service == service
+            )
+        ).first()
+        if existing:
+            existing.config = cfg
+            existing.enabled = is_enabled
+            existing.last_error = None
+            s.add(existing)
+        else:
+            s.add(db.Integration(
+                bot_id=bot_id, service=service,
+                name=service, config=cfg, enabled=is_enabled,
+            ))
+        s.commit()
+    return RedirectResponse(f"/bots/{bot_id}/integrations", status_code=303)
+
+@app.post("/bots/{bot_id}/integrations/test/{service}")
+async def integrations_test(bot_id: int, service: str):
+    """Тестовый вызов интеграции."""
+    bot = db.get_bot(bot_id)
+    if not bot: raise HTTPException(404)
+    from app import integrations as integ
+    try:
+        integrations_list = db.get_bot_integrations(bot_id)
+        i = next((x for x in integrations_list if x.service == service), None)
+        if not i: raise HTTPException(404, "Интеграция не найдена")
+        import json as _j
+        cfg = _j.loads(i.config or "{}")
+        if service == "webhook":
+            await integ.trigger_webhook(cfg, bot, "Тест", "Привет, это тест!", "Тестер", "web")
+        elif service == "bitrix24":
+            await integ.trigger_bitrix24(cfg, bot, "Тест", "Привет, это тест!", "Тестер")
+        elif service == "sheets":
+            await integ.trigger_sheets(cfg, bot, "Тест", "Привет, это тест!", "Тестер", "web")
+        elif service == "email":
+            await integ.trigger_email(cfg, bot, "Тест", "Привет, это тест!", "Тестер")
+        return RedirectResponse(f"/bots/{bot_id}/integrations?test=ok&svc={service}", status_code=303)
+    except Exception as e:
+        return RedirectResponse(f"/bots/{bot_id}/integrations?test=err&msg={str(e)[:100]}", status_code=303)
+
+
+# ============ INTEGRATIONS ============
+import json as _json, os as _os
+
+@app.get("/bots/{bot_id}/integrations", response_class=HTMLResponse)
+async def integrations_page(request: Request, bot_id: int):
+    bot = db.get_bot(bot_id)
+    if not bot: raise HTTPException(404)
+    integrations_list = db.get_bot_integrations(bot_id)
+    groq_configured = bool(_os.getenv("GROQ_API_KEY"))
+    return templates.TemplateResponse("integrations.html", {
+        "request": request, "bot": bot,
+        "integrations": integrations_list,
+        "groq_configured": groq_configured,
+    })
+
+@app.post("/bots/{bot_id}/integrations/add")
+async def integration_add(request: Request, bot_id: int):
+    form = await request.form()
+    type_ = form.get("type", "")
+    name  = form.get("name", type_)
+
+    # Собираем config из полей формы, исключая общие
+    skip = {"type", "name", "bot_id"}
+    config = {k: v for k, v in form.items() if k not in skip and v}
+
+    with db.get_session() as s:
+        i = db.Integration(bot_id=bot_id, type=type_, name=name, config=_json.dumps(config))
+        s.add(i); s.commit()
+    return RedirectResponse(f"/bots/{bot_id}/integrations", status_code=303)
+
+@app.post("/bots/{bot_id}/integrations/{integ_id}/toggle")
+async def integration_toggle(bot_id: int, integ_id: int):
+    with db.get_session() as s:
+        i = s.get(db.Integration, integ_id)
+        if i and i.bot_id == bot_id:
+            i.enabled = not i.enabled
+            s.add(i); s.commit()
+    return RedirectResponse(f"/bots/{bot_id}/integrations", status_code=303)
+
+@app.post("/bots/{bot_id}/integrations/{integ_id}/delete")
+async def integration_delete(bot_id: int, integ_id: int):
+    with db.get_session() as s:
+        i = s.get(db.Integration, integ_id)
+        if i and i.bot_id == bot_id: s.delete(i); s.commit()
+    return RedirectResponse(f"/bots/{bot_id}/integrations", status_code=303)
+
+@app.post("/bots/{bot_id}/integrations/{integ_id}/test")
+async def integration_test(bot_id: int, integ_id: int):
+    """Тестовый запуск конкретной интеграции."""
+    from app import integrations as ig
+    bot = db.get_bot(bot_id)
+    if not bot: raise HTTPException(404)
+    i = db.get_integration(integ_id)
+    if not i: raise HTTPException(404)
+    test_data = {
+        "bot_id": bot_id, "bot_name": bot.name,
+        "user_message": "Тестовое сообщение", "bot_reply": "Тестовый ответ бота",
+        "user_name": "Тест", "user_id": "0", "channel": "test",
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+    handlers = {"webhook": ig.trigger_webhook, "sheets": ig.trigger_sheets,
+                "email": ig.trigger_email, "bitrix24": ig.trigger_bitrix24, "airtable": ig.trigger_airtable}
+    h = handlers.get(i.type)
+    if h:
+        try:
+            await h(_json.loads(i.config), test_data)
+            return {"ok": True, "message": "Тест прошёл успешно"}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+    return {"ok": False, "error": "Неизвестный тип"}
 
 if __name__ == "__main__":
     import uvicorn
