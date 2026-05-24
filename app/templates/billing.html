@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Биллинг — Реплика{% endblock %}
+{% block crumbs %}реплика.платформа <span class="sep">/</span> <span class="here">Биллинг</span>{% endblock %}
+
+{% block content %}
+<div class="page-head fade-up">
+  <div class="eyebrow">Тарифы и оплата</div>
+  <h1>Биллинг <span class="muted">&</span> <span class="accent">использование</span>.</h1>
+  <p class="lede">Текущий тариф, расход токенов и стоимость работы ботов. Все данные обновляются в реальном времени.</p>
+</div>
+
+<div class="billing-grid fade-up d1">
+  <!-- Текущий план -->
+  <div class="billing-plan">
+    <div class="plan-name">● Текущий тариф</div>
+    <h2>MVP · Старт</h2>
+    <div class="plan-desc">Бесплатный тариф для разработки и тестирования. До 5 ботов, до 1 000 сообщений в день.</div>
+    <div class="plan-price"><span class="unit">₽</span>0<span style="font-size:0.35em;color:rgba(242,236,224,0.4);margin-left:6px;">/мес</span></div>
+    <a href="#" class="upgrade-btn">Перейти на Pro →</a>
+  </div>
+
+  <!-- Использование -->
+  <div class="usage-card">
+    <h3 style="margin-bottom:16px;">Использование за месяц</h3>
+    {% set msg_pct = [a.total_msgs * 100 // 1000, 100]|min %}
+    <div class="usage-row">
+      <span class="lbl">Боты</span>
+      <span class="val">{{ a.total_bots }} / 5</span>
+    </div>
+    <div class="usage-bar-wrap"><div class="usage-bar" style="width:{{ [a.total_bots * 20, 100]|min }}%"></div></div>
+
+    <div class="usage-row" style="margin-top:14px;">
+      <span class="lbl">Сообщений за все время</span>
+      <span class="val">{{ a.total_msgs }}</span>
+    </div>
+
+    <div class="usage-row" style="margin-top:14px;">
+      <span class="lbl">Токенов потрачено</span>
+      <span class="val">{{ "{:,}".format(a.total_tokens).replace(",", " ") }}</span>
+    </div>
+
+    <div class="usage-row" style="margin-top:14px;">
+      <span class="lbl">Примерная стоимость</span>
+      <span class="val" style="color:var(--emerald);">≈ ₽{{ "%.2f"|format(a.total_tokens * 0.0004) }}</span>
+    </div>
+
+    <div class="usage-row" style="margin-top:14px;">
+      <span class="lbl">Активных ботов</span>
+      <span class="val">{{ a.active_bots }}</span>
+    </div>
+
+    <div class="usage-row" style="margin-top:14px;">
+      <span class="lbl">Диалогов всего</span>
+      <span class="val">{{ a.total_convs }}</span>
+    </div>
+  </div>
+</div>
+
+<!-- Планы -->
+<div class="table-card fade-up d2">
+  <div class="table-head">
+    <div class="title">Доступные тарифы</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-mute);letter-spacing:0.08em;text-transform:uppercase;">MVP · 2026</div>
+  </div>
+  {% for plan in [
+    ("Старт", "0", "5 ботов · 1 000 сообщ/день · GigaChat · Поддержка в чате", True),
+    ("Бизнес", "4 990", "Без лимитов · GPT-4o · Все интеграции · Приоритетная поддержка · Аналитика PRO", False),
+    ("Агентство", "14 990", "Мультиаккаунт · Белая метка · API доступ · SLA 99.9% · Персональный менеджер", False),
+  ] %}
+  <div class="table-row" style="grid-template-columns:140px 1fr auto;">
+    <div>
+      <div style="font-variation-settings:'wght' 600;font-size:15px;">{{ plan[0] }}</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:20px;color:var(--emerald);font-weight:700;margin-top:4px;">
+        {% if plan[1] == "0" %}Бесплатно{% else %}₽{{ plan[1] }}/мес{% endif %}
+      </div>
+    </div>
+    <div style="font-size:13.5px;color:var(--ink-soft);">{{ plan[2] }}</div>
+    {% if plan[3] %}
+    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;padding:5px 12px;background:rgba(27,110,75,0.1);color:var(--emerald);border-radius:999px;letter-spacing:0.1em;text-transform:uppercase;">Текущий</span>
+    {% else %}
+    <a href="#" class="btn sm primary">Выбрать</a>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<!-- История платежей -->
+<div class="table-card fade-up d3" style="margin-top:14px;">
+  <div class="table-head">
+    <div class="title">История платежей</div>
+  </div>
+  <div style="padding:32px;text-align:center;color:var(--ink-mute);font-size:14px;">
+    Платежей ещё не было — вы на бесплатном тарифе.
+  </div>
+</div>
+{% endblock %}
