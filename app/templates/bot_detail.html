@@ -27,6 +27,7 @@
   </div>
   <div class="actions btn-row">
     <a href="/bots/{{ bot.id }}/chat" class="btn primary" target="_blank">💬 Тестировать</a>
+    <a href="/bots/{{ bot.id }}/integrations" class="btn">🔗 Интеграции</a>
     <a href="/bots/{{ bot.id }}/integrations" class="btn">🔗 Интеграции{% if integrations_count %} ({{ integrations_count }}){% endif %}</a>
     {% if bot.telegram_token %}
       {% if is_running %}
