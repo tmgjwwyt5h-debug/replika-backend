@@ -297,3 +297,53 @@ def get_all_knowledge() -> list:
     with get_session() as s:
         chunks = list(s.exec(select(KnowledgeChunk).order_by(KnowledgeChunk.created_at.desc())))
         return chunks
+
+
+# ============ INTEGRATIONS ============
+class Integration(SQLModel, table=True):
+    """Интеграция бота с внешним сервисом."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    bot_id: int = Field(foreign_key="bot.id", index=True)
+    service: str          # webhook, bitrix24, sheets, email, vk
+    name: str             # название интеграции
+    enabled: bool = False
+    config: str = "{}"    # JSON с настройками (URL, ключи)
+    last_triggered_at: Optional[datetime] = None
+    trigger_count: int = 0
+    last_error: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+def get_bot_integrations(bot_id: int) -> list:
+    with get_session() as s:
+        return list(s.exec(select(Integration).where(Integration.bot_id == bot_id)))
+
+def get_integration(integ_id: int) -> Optional[Integration]:
+    with get_session() as s:
+        return s.get(Integration, integ_id)
+
+
+# ============ INTEGRATIONS MODEL ============
+import json as _json
+
+class Integration(SQLModel, table=True):
+    """Интеграция бота с внешним сервисом."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    bot_id: int = Field(foreign_key="bot.id", index=True)
+    type: str          # webhook | sheets | email | bitrix24 | airtable
+    name: str
+    enabled: bool = True
+    config: str = "{}" # JSON строка с настройками
+    last_triggered: Optional[datetime] = None
+    trigger_count: int = 0
+    last_error: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+def get_bot_integrations(bot_id: int) -> list:
+    with get_session() as s:
+        return list(s.exec(select(Integration).where(Integration.bot_id == bot_id)))
+
+
+def get_integration(integ_id: int) -> Optional[Integration]:
+    with get_session() as s:
+        return s.get(Integration, integ_id)
