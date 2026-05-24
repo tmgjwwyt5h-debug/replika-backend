@@ -259,6 +259,61 @@ async def bot_chat_test(request: Request, bot_id: int):
         "request": request, "bot": bot,
     })
 
+
+# ============ ANALYTICS ============
+@app.get("/analytics", response_class=HTMLResponse)
+async def analytics_page(request: Request):
+    a = db.get_platform_analytics(30)
+    all_bots = db.get_all_bots()
+    bots_map = {b.id: {"name": b.name, "status": b.status} for b in all_bots}
+    return templates.TemplateResponse("analytics.html", {
+        "request": request, "a": a, "all_bots": all_bots, "bots_map": bots_map,
+    })
+
+# ============ KNOWLEDGE BASE (GLOBAL) ============
+@app.get("/knowledge", response_class=HTMLResponse)
+async def knowledge_page(request: Request, bot: str = ""):
+    all_bots = db.get_all_bots()
+    bots_map = {b.id: {"name": b.name} for b in all_bots}
+    chunks = db.get_all_knowledge()
+    if bot:
+        try:
+            bid = int(bot)
+            chunks = [c for c in chunks if c.bot_id == bid]
+        except:
+            pass
+    return templates.TemplateResponse("knowledge.html", {
+        "request": request, "chunks": chunks,
+        "all_bots": all_bots, "bots_map": bots_map, "bot_filter": bot,
+    })
+
+@app.post("/knowledge")
+async def knowledge_add(
+    title: str = Form(...), content: str = Form(...), bot_id: str = Form(""),
+):
+    with db.get_session() as s:
+        bid = int(bot_id) if bot_id else None
+        k = db.KnowledgeChunk(
+            bot_id=bid or 0, title=title.strip(), content=content.strip()
+        )
+        s.add(k); s.commit()
+    return RedirectResponse("/knowledge", status_code=303)
+
+@app.post("/knowledge/{k_id}/delete")
+async def knowledge_delete_global(k_id: int):
+    with db.get_session() as s:
+        k = s.get(db.KnowledgeChunk, k_id)
+        if k: s.delete(k); s.commit()
+    return RedirectResponse("/knowledge", status_code=303)
+
+# ============ BILLING ============
+@app.get("/billing", response_class=HTMLResponse)
+async def billing_page(request: Request):
+    a = db.get_platform_analytics(30)
+    return templates.TemplateResponse("billing.html", {
+        "request": request, "a": a,
+    })
+
 if __name__ == "__main__":
     import uvicorn
     # Railway сам задаёт PORT — берём его, по умолчанию 8000
