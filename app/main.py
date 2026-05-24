@@ -13,7 +13,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlmodel import select
 
-from app import db, llm, telegram_runner, integrations as integ_module
+from app import db, llm, telegram_runner, integrations
+from app.integrations import Integration, get_bot_integrations, integrations as integ_module
 import json as _json
 
 logging.basicConfig(
@@ -478,6 +479,89 @@ async def integration_test(bot_id: int, integ_id: int):
         except Exception as e:
             return {"ok": False, "error": str(e)}
     return {"ok": False, "error": "Неизвестный тип"}
+
+
+# ============ INTEGRATIONS ============
+@app.get("/bots/{bot_id}/integrations", response_class=HTMLResponse)
+async def integrations_page(request: Request, bot_id: int):
+    bot = db.get_bot(bot_id)
+    if not bot: raise HTTPException(404)
+    igs = get_bot_integrations(bot_id)
+    return templates.TemplateResponse("bot_integrations.html", {
+        "request": request, "bot": bot, "integrations": igs,
+    })
+
+@app.post("/bots/{bot_id}/integrations/add")
+async def integration_add(
+    bot_id: int,
+    type: str = Form(...),
+    name: str = Form(...),
+    # webhook
+    url: str = Form(""), secret: str = Form(""),
+    # email
+    smtp_user: str = Form(""), smtp_pass: str = Form(""),
+    to_email: str = Form(""), smtp_host: str = Form("smtp.gmail.com"), smtp_port: str = Form("587"),
+    # sheets
+    webapp_url: str = Form(""),
+    # bitrix24
+    webhook_url: str = Form(""),
+    # amocrm
+    domain: str = Form(""), api_token: str = Form(""),
+):
+    if type == "webhook":
+        cfg = {"url": url.strip(), "secret": secret.strip()}
+    elif type == "email":
+        cfg = {"smtp_user": smtp_user.strip(), "smtp_pass": smtp_pass, "to_email": to_email.strip(),
+               "smtp_host": smtp_host.strip(), "smtp_port": smtp_port.strip()}
+    elif type == "sheets":
+        cfg = {"webapp_url": webapp_url.strip()}
+    elif type == "bitrix24":
+        cfg = {"webhook_url": webhook_url.strip()}
+    elif type == "amocrm":
+        cfg = {"domain": domain.strip(), "api_token": api_token}
+    else:
+        cfg = {}
+    with db.get_session() as s:
+        ig = Integration(bot_id=bot_id, type=type, name=name.strip(), config=json.dumps(cfg))
+        s.add(ig); s.commit()
+    return RedirectResponse(f"/bots/{bot_id}/integrations", status_code=303)
+
+@app.post("/bots/{bot_id}/integrations/{ig_id}/toggle")
+async def integration_toggle(bot_id: int, ig_id: int):
+    with db.get_session() as s:
+        ig = s.get(Integration, ig_id)
+        if ig and ig.bot_id == bot_id:
+            ig.enabled = not ig.enabled
+            s.add(ig); s.commit()
+    return RedirectResponse(f"/bots/{bot_id}/integrations", status_code=303)
+
+@app.post("/bots/{bot_id}/integrations/{ig_id}/delete")
+async def integration_delete(bot_id: int, ig_id: int):
+    with db.get_session() as s:
+        ig = s.get(Integration, ig_id)
+        if ig and ig.bot_id == bot_id:
+            s.delete(ig); s.commit()
+    return RedirectResponse(f"/bots/{bot_id}/integrations", status_code=303)
+
+@app.post("/bots/{bot_id}/integrations/{ig_id}/test")
+async def integration_test(request: Request, bot_id: int, ig_id: int):
+    """Тест интеграции с тестовыми данными."""
+    bot = db.get_bot(bot_id)
+    if not bot: raise HTTPException(404)
+    with db.get_session() as s:
+        ig = s.get(Integration, ig_id)
+        if not ig: raise HTTPException(404)
+    try:
+        await integrations.fire_all(
+            bot_id=bot_id, bot_name=bot.name,
+            user_name="Тестовый пользователь",
+            user_message="Это тестовое сообщение",
+            bot_reply="Это тестовый ответ бота",
+            channel="test",
+        )
+        return {"ok": True, "message": "Тест успешен"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 if __name__ == "__main__":
     import uvicorn
