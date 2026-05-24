@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% block title %}Интеграции — {{ bot.name }} · Реплика{% endblock %}
+{% block crumbs %}
+  <a href="/" style="color:inherit;text-decoration:none;">Боты</a>
+  <span class="sep">/</span>
+  <a href="/bots/{{ bot.id }}" style="color:inherit;text-decoration:none;">{{ bot.name }}</a>
+  <span class="sep">/</span>
+  <span class="here">Интеграции</span>
+{% endblock %}
+{% block topbar_actions %}
+<a href="/bots/{{ bot.id }}" class="btn ghost">← К боту</a>
+{% endblock %}
+
+{% block content %}
+<div class="page-head fade-up">
+  <div class="eyebrow">Интеграции · {{ bot.name }}</div>
+  <h1>Подключить <span class="accent">сервисы</span>.</h1>
+  <p class="lede">После каждого диалога бот автоматически отправит данные в подключённые сервисы. Webhook, Sheets, Email, Битрикс24 — всё работает реально.</p>
+</div>
+
+<style>
+.integ-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; margin-bottom: 28px; }
+.integ-card { background: var(--paper); border: 1.5px solid var(--line); border-radius: 14px; overflow: hidden; transition: all 0.2s var(--ease); }
+.integ-card:hover { box-shadow: 0 8px 24px rgba(20,17,13,0.09); border-color: rgba(20,17,13,0.22); }
+.integ-card.connected { border-color: var(--emerald); }
+.integ-card-head { padding: 18px 20px; display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; border-bottom: 1px solid var(--line); }
+.integ-ic { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.integ-ic.webhook { background: rgba(27,110,75,0.1); }
+.integ-ic.sheets { background: rgba(46,140,99,0.1); }
+.integ-ic.email { background: rgba(90,155,197,0.1); }
+.integ-ic.bitrix24 { background: rgba(30,136,229,0.12); }
+.integ-ic.airtable { background: rgba(255,165,50,0.12); }
+.integ-name { font-variation-settings: "wght" 600; font-size: 15px; letter-spacing: -0.012em; }
+.integ-desc { font-size: 12px; color: var(--ink-mute); margin-top: 2px; }
+.toggle { width: 40px; height: 22px; background: var(--line); border-radius: 999px; position: relative; cursor: pointer; transition: all 0.2s; border: none; flex-shrink: 0; }
+.toggle::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; background: var(--paper); border-radius: 50%; transition: all 0.2s; }
+.toggle.on { background: var(--emerald); }
+.toggle.on::after { left: 21px; }
+.integ-body { padding: 16px 20px; }
+.integ-field { margin-bottom: 10px; }
+.integ-field label { display: block; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-mute); margin-bottom: 6px; }
+.integ-input { width: 100%; border: 1.5px solid var(--line); background: var(--paper-soft); padding: 9px 12px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink); outline: none; transition: border-color 0.15s; }
+.integ-input:focus { border-color: var(--emerald); background: var(--paper); }
+.integ-foot { padding: 12px 20px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; background: var(--paper-soft); }
+.integ-stat { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-mute); letter-spacing: 0.06em; }
+.integ-stat .ok { color: var(--emerald); }
+.integ-stat .err { color: var(--rust); }
+.tip-block { background: rgba(27,110,75,0.06); border: 1px solid rgba(27,110,75,0.2); border-radius: 8px; padding: 12px 14px; margin-top: 10px; }
+.tip-block .tip-title { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--emerald); margin-bottom: 6px; }
+.tip-block p { font-size: 12.5px; color: var(--ink-soft); line-height: 1.55; }
+.tip-block code { background: var(--paper); padding: 1px 5px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+</style>
+
+<!-- Сохранённые интеграции -->
+{% if integrations %}
+<h2 style="margin-bottom:14px;" class="fade-up">Подключённые <span style="color:var(--emerald)">{{ integrations|length }}</span></h2>
+<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:32px;" class="fade-up d1">
+  {% for integ in integrations %}
+  <div style="background:var(--paper);border:1px solid {% if integ.enabled %}var(--emerald){% else %}var(--line){% endif %};border-radius:10px;padding:14px 18px;display:grid;grid-template-columns:auto 1fr auto auto;gap:14px;align-items:center;">
+    <span style="font-size:18px;">{% if integ.type=='webhook' %}🔗{% elif integ.type=='sheets' %}📊{% elif integ.type=='email' %}📧{% elif integ.type=='bitrix24' %}🏢{% else %}📋{% endif %}</span>
+    <div>
+      <div style="font-variation-settings:'wght' 600;font-size:14px;">{{ integ.name }}</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-mute);margin-top:2px;">
+        {{ integ.type }} ·
+        {% if integ.last_triggered %}последний раз: {{ integ.last_triggered.strftime("%d.%m %H:%M") }} · {{ integ.trigger_count }} раз{% else %}ещё не срабатывал{% endif %}
+        {% if integ.last_error %} · <span style="color:var(--rust);">ошибка</span>{% endif %}
+      </div>
+    </div>
+    <form method="POST" action="/bots/{{ bot.id }}/integrations/{{ integ.id }}/toggle">
+      <button class="toggle {% if integ.enabled %}on{% endif %}" type="submit" title="{% if integ.enabled %}Выключить{% else %}Включить{% endif %}"></button>
+    </form>
+    <form method="POST" action="/bots/{{ bot.id }}/integrations/{{ integ.id }}/delete" onsubmit="return confirm('Удалить интеграцию?')">
+      <button class="btn sm danger" type="submit">✕</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Добавить интеграцию -->
+<h2 style="margin-bottom:18px;" class="fade-up d2">Добавить <span style="color:var(--emerald)">интеграцию</span></h2>
+<div class="integ-grid fade-up d2">
+
+  <!-- WEBHOOK -->
+  <div class="integ-card">
+    <div class="integ-card-head">
+      <div class="integ-ic webhook">🔗</div>
+      <div><div class="integ-name">Webhook</div><div class="integ-desc">Zapier, Make, n8n, любой URL</div></div>
+    </div>
+    <form method="POST" action="/bots/{{ bot.id }}/integrations/add">
+      <input type="hidden" name="type" value="webhook"/>
+      <div class="integ-body">
+        <div class="integ-field"><label>Название</label><input class="integ-input" name="name" value="Webhook" required/></div>
+        <div class="integ-field"><label>URL для POST-запроса *</label><input class="integ-input" name="url" placeholder="https://hooks.zapier.com/..." required/></div>
+        <div class="integ-field"><label>Секрет (X-Replika-Secret)</label><input class="integ-input" name="secret" placeholder="необязательно"/></div>
+        <div class="tip-block">
+          <div class="tip-title">Что придёт в запросе</div>
+          <p>JSON: <code>bot_name</code>, <code>user_message</code>, <code>bot_reply</code>, <code>user_name</code>, <code>channel</code>, <code>timestamp</code></p>
+        </div>
+      </div>
+      <div class="integ-foot"><span class="integ-stat">Бесплатно · работает сразу</span><button class="btn sm primary" type="submit">Подключить</button></div>
+    </form>
+  </div>
+
+  <!-- GOOGLE SHEETS -->
+  <div class="integ-card">
+    <div class="integ-card-head">
+      <div class="integ-ic sheets">📊</div>
+      <div><div class="integ-name">Google Sheets</div><div class="integ-desc">Через Apps Script (бесплатно)</div></div>
+    </div>
+    <form method="POST" action="/bots/{{ bot.id }}/integrations/add">
+      <input type="hidden" name="type" value="sheets"/>
+      <div class="integ-body">
+        <div class="integ-field"><label>Название</label><input class="integ-input" name="name" value="Google Sheets" required/></div>
+        <div class="integ-field"><label>URL Apps Script Web App *</label><input class="integ-input" name="script_url" placeholder="https://script.google.com/macros/s/..." required/></div>
+        <div class="tip-block">
+          <div class="tip-title">Как настроить</div>
+          <p>1. Откройте вашу таблицу → Расширения → Apps Script<br>
+          2. Вставьте код: <code>function doPost(e){var s=SpreadsheetApp.getActiveSheet();var d=JSON.parse(e.postData.contents);s.appendRow([d.timestamp,d.user_name,d.user_message,d.bot_reply]);return ContentService.createTextOutput("ok");}</code><br>
+          3. Опубликуйте → Развернуть → Новое развёртывание → Web App → Доступ: все</p>
+        </div>
+      </div>
+      <div class="integ-foot"><span class="integ-stat">Бесплатно · Google аккаунт</span><button class="btn sm primary" type="submit">Подключить</button></div>
+    </form>
+  </div>
+
+  <!-- EMAIL -->
+  <div class="integ-card">
+    <div class="integ-card-head">
+      <div class="integ-ic email">📧</div>
+      <div><div class="integ-name">Email (SMTP)</div><div class="integ-desc">Gmail, Яндекс.Почта, любой</div></div>
+    </div>
+    <form method="POST" action="/bots/{{ bot.id }}/integrations/add">
+      <input type="hidden" name="type" value="email"/>
+      <div class="integ-body">
+        <div class="integ-field"><label>Название</label><input class="integ-input" name="name" value="Email уведомления" required/></div>
+        <div class="integ-field"><label>SMTP Хост</label><input class="integ-input" name="smtp_host" value="smtp.gmail.com"/></div>
+        <div class="integ-field"><label>SMTP Порт</label><input class="integ-input" name="smtp_port" value="587"/></div>
+        <div class="integ-field"><label>От кого (email) *</label><input class="integ-input" name="smtp_user" placeholder="your@gmail.com" required/></div>
+        <div class="integ-field"><label>App Password Gmail *</label><input class="integ-input" type="password" name="smtp_pass" placeholder="xxxx xxxx xxxx xxxx" required/></div>
+        <div class="integ-field"><label>Кому (email) *</label><input class="integ-input" name="to_email" placeholder="owner@company.ru" required/></div>
+        <div class="tip-block">
+          <div class="tip-title">Gmail App Password</div>
+          <p>myaccount.google.com → Безопасность → Двухэтапная аутентификация → Пароли приложений → Создать</p>
+        </div>
+      </div>
+      <div class="integ-foot"><span class="integ-stat">Бесплатно · Gmail</span><button class="btn sm primary" type="submit">Подключить</button></div>
+    </form>
+  </div>
+
+  <!-- BITRIX24 -->
+  <div class="integ-card">
+    <div class="integ-card-head">
+      <div class="integ-ic bitrix24">🏢</div>
+      <div><div class="integ-name">Битрикс24</div><div class="integ-desc">Создание лидов в CRM</div></div>
+    </div>
+    <form method="POST" action="/bots/{{ bot.id }}/integrations/add">
+      <input type="hidden" name="type" value="bitrix24"/>
+      <div class="integ-body">
+        <div class="integ-field"><label>Название</label><input class="integ-input" name="name" value="Битрикс24 CRM" required/></div>
+        <div class="integ-field"><label>Incoming Webhook URL *</label><input class="integ-input" name="webhook_url" placeholder="https://your.bitrix24.ru/rest/1/xxx/" required/></div>
+        <div class="tip-block">
+          <div class="tip-title">Как получить Webhook</div>
+          <p>Битрикс24 → Приложения → Вебхуки → Входящий вебхук → разрешение <code>crm</code> → Сохранить</p>
+        </div>
+      </div>
+      <div class="integ-foot"><span class="integ-stat">Бесплатный план Битрикс</span><button class="btn sm primary" type="submit">Подключить</button></div>
+    </form>
+  </div>
+
+  <!-- AIRTABLE -->
+  <div class="integ-card">
+    <div class="integ-card-head">
+      <div class="integ-ic airtable">📋</div>
+      <div><div class="integ-name">Airtable</div><div class="integ-desc">База данных диалогов</div></div>
+    </div>
+    <form method="POST" action="/bots/{{ bot.id }}/integrations/add">
+      <input type="hidden" name="type" value="airtable"/>
+      <div class="integ-body">
+        <div class="integ-field"><label>Название</label><input class="integ-input" name="name" value="Airtable" required/></div>
+        <div class="integ-field"><label>API Token *</label><input class="integ-input" name="api_key" placeholder="pat..." required/></div>
+        <div class="integ-field"><label>Base ID *</label><input class="integ-input" name="base_id" placeholder="appXXXXXXXX" required/></div>
+        <div class="integ-field"><label>Название таблицы</label><input class="integ-input" name="table_name" value="Диалоги"/></div>
+        <div class="tip-block">
+          <div class="tip-title">Как получить API Token</div>
+          <p>airtable.com → Account → Developer Hub → Personal access tokens → Create token. Права: <code>data.records:write</code></p>
+        </div>
+      </div>
+      <div class="integ-foot"><span class="integ-stat">Бесплатный план</span><button class="btn sm primary" type="submit">Подключить</button></div>
+    </form>
+  </div>
+
+  <!-- VOICE -->
+  <div class="integ-card" style="border-color: rgba(123,196,112,0.4); background: rgba(27,110,75,0.02);">
+    <div class="integ-card-head">
+      <div class="integ-ic" style="background:rgba(123,196,112,0.15);">🎤</div>
+      <div><div class="integ-name">Голосовой бот</div><div class="integ-desc">STT + TTS в Telegram</div></div>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:9px;padding:3px 8px;background:rgba(27,110,75,0.1);color:var(--emerald);border-radius:999px;letter-spacing:0.1em;">НОВОЕ</span>
+    </div>
+    <div class="integ-body">
+      <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.55;margin-bottom:14px;">
+        Бот будет принимать голосовые сообщения в Telegram и отвечать голосом. Полностью бесплатно.
+      </p>
+      <div style="display:grid;gap:8px;">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--paper-soft);border:1px solid var(--line);border-radius:8px;">
+          <span style="color:var(--mint);font-weight:700;">✓</span>
+          <div>
+            <div style="font-size:13px;font-variation-settings:'wght' 500;">STT: Groq Whisper</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-mute);">500 мин/мес бесплатно · console.groq.com</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--paper-soft);border:1px solid var(--line);border-radius:8px;">
+          <span style="color:var(--mint);font-weight:700;">✓</span>
+          <div>
+            <div style="font-size:13px;font-variation-settings:'wght' 500;">TTS: Microsoft edge-tts</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-mute);">Бесплатно · без ключа · Svetlana / Dmitry</div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:14px;padding:12px;background:var(--ink);border-radius:8px;color:var(--paper);">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--mint-bright);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:8px;">Что нужно сделать</div>
+        <div style="font-size:13px;line-height:1.6;color:rgba(242,236,224,0.8);">
+          1. Зарегистрируйтесь на <strong style="color:var(--mint-bright);">console.groq.com</strong><br>
+          2. API Keys → Create Key → скопируйте<br>
+          3. Railway → Variables → <code style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px;">GROQ_API_KEY = ваш_ключ</code><br>
+          4. После этого бот автоматически принимает голосовые сообщения ✓
+        </div>
+      </div>
+    </div>
+    <div class="integ-foot">
+      <span class="integ-stat">{% if groq_configured %}<span class="ok">● GROQ_API_KEY настроен</span>{% else %}<span style="color:var(--amber);">⚠ Нужен GROQ_API_KEY</span>{% endif %}</span>
+      <a href="https://console.groq.com" target="_blank" class="btn sm primary">Получить ключ →</a>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
