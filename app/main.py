@@ -59,6 +59,7 @@ async def dashboard(request: Request):
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "bots": bots,
+        "sidebar_bots": bots[:8],
         "running_ids": list(telegram_runner._running.keys()),
         "total_messages": sum(b.total_messages for b in bots),
         "active_count": sum(1 for b in bots if b.status == "active"),
@@ -320,3 +321,202 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", "8000"))
     logger.info(f"Запуск на 0.0.0.0:{port}")
     uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=False)
+
+# ============ SIDEBAR HELPER ============
+async def _sidebar(db_session):
+    bots = db.get_all_bots()
+    return bots[:8]
+
+# ============ ANALYTICS ============
+@app.get("/analytics", response_class=HTMLResponse)
+async def analytics(request: Request):
+    from sqlmodel import select, func
+    from datetime import datetime, timedelta
+
+    bots = db.get_all_bots()
+
+    with db.get_session() as s:
+        today = datetime.utcnow().date()
+        month_start = today.replace(day=1)
+        week_start = today - timedelta(days=7)
+
+        total_msg = s.exec(select(func.count(db.Message.id))).one()
+        today_msg = s.exec(select(func.count(db.Message.id)).where(
+            func.date(db.Message.created_at) == str(today))).one()
+        total_conv = s.exec(select(func.count(db.Conversation.id))).one()
+        week_conv = s.exec(select(func.count(db.Conversation.id)).where(
+            db.Conversation.created_at >= str(week_start))).one()
+        total_tokens = s.exec(select(func.coalesce(func.sum(db.Message.tokens_used), 0))).one()
+
+        # Per-bot stats
+        bot_stats = []
+        for b in bots:
+            conv_cnt = s.exec(select(func.count(db.Conversation.id)).where(
+                db.Conversation.bot_id == b.id)).one()
+            tok = s.exec(select(func.coalesce(func.sum(db.Message.tokens_used), 0)).where(
+                db.Message.bot_id == b.id)).one()
+            bot_stats.append({
+                "id": b.id, "name": b.name, "status": b.status,
+                "conversations": conv_cnt, "total_messages": b.total_messages,
+                "tokens": tok, "llm_provider": b.llm_provider
+            })
+
+        # Chart: 14 days
+        chart_labels, chart_points, chart_line, chart_area = [], [], "", ""
+        try:
+            days_data = []
+            for i in range(13, -1, -1):
+                d = today - timedelta(days=i)
+                cnt = s.exec(select(func.count(db.Message.id)).where(
+                    func.date(db.Message.created_at) == str(d),
+                    db.Message.role == "user")).one()
+                days_data.append({"date": d, "count": cnt})
+
+            max_cnt = max((d["count"] for d in days_data), default=1) or 1
+            W, H = 700, 140
+            pts = []
+            for i, d in enumerate(days_data):
+                x = 20 + i * (W - 40) / 13
+                y = H - 10 - (d["count"] / max_cnt) * (H - 20)
+                pts.append({"x": round(x), "y": round(y)})
+                if i % 3 == 0:
+                    chart_labels.append({"x": round(x), "label": d["date"].strftime("%d.%m")})
+            chart_points = pts
+            chart_line = "M " + " L ".join(f"{p['x']} {p['y']}" for p in pts)
+            chart_area = chart_line + f" L {pts[-1]['x']} {H} L {pts[0]['x']} {H} Z"
+        except Exception:
+            pass
+
+    free_limit = 1_000_000
+    tokens_pct = min(round(total_tokens / free_limit * 100, 1), 100)
+
+    return templates.TemplateResponse("analytics.html", {
+        "request": request,
+        "sidebar_bots": bots[:8],
+        "stats": {
+            "total_messages": total_msg,
+            "today_messages": today_msg,
+            "total_conversations": total_conv,
+            "week_conversations": week_conv,
+            "total_tokens": total_tokens,
+            "tokens_pct": tokens_pct,
+            "active_bots": sum(1 for b in bots if b.status == "active"),
+            "total_bots": len(bots),
+        },
+        "bot_stats": bot_stats,
+        "chart_points": chart_points,
+        "chart_labels": chart_labels,
+        "chart_line": chart_line,
+        "chart_area": chart_area,
+    })
+
+
+# ============ KNOWLEDGE (GLOBAL) ============
+@app.get("/knowledge", response_class=HTMLResponse)
+async def knowledge_global(request: Request):
+    bots = db.get_all_bots()
+    from sqlmodel import select
+    with db.get_session() as s:
+        all_chunks = list(s.exec(select(db.KnowledgeChunk).order_by(db.KnowledgeChunk.created_at.desc())))
+
+    bot_map = {b.id: b.name for b in bots}
+    chunks_by_bot = {}
+    for k in all_chunks:
+        name = bot_map.get(k.bot_id, f"Бот #{k.bot_id}")
+        chunks_by_bot.setdefault(name, []).append(k)
+
+    return templates.TemplateResponse("knowledge.html", {
+        "request": request,
+        "sidebar_bots": bots[:8],
+        "bots": bots,
+        "chunks_by_bot": chunks_by_bot,
+        "total_chunks": len(all_chunks),
+    })
+
+
+@app.post("/knowledge/add")
+async def knowledge_add_global(
+    bot_id: int = Form(...),
+    title: str = Form(...),
+    content: str = Form(...),
+):
+    with db.get_session() as s:
+        if not s.get(db.Bot, bot_id):
+            raise HTTPException(404)
+        k = db.KnowledgeChunk(bot_id=bot_id, title=title.strip(), content=content.strip())
+        s.add(k); s.commit()
+    return RedirectResponse("/knowledge", status_code=303)
+
+
+@app.post("/knowledge/{k_id}/delete")
+async def knowledge_delete_global(k_id: int):
+    with db.get_session() as s:
+        k = s.get(db.KnowledgeChunk, k_id)
+        if k: s.delete(k); s.commit()
+    return RedirectResponse("/knowledge", status_code=303)
+
+
+@app.post("/knowledge/{k_id}/toggle")
+async def knowledge_toggle(k_id: int):
+    with db.get_session() as s:
+        k = s.get(db.KnowledgeChunk, k_id)
+        if k:
+            k.enabled = not k.enabled
+            s.add(k); s.commit()
+    return RedirectResponse("/knowledge", status_code=303)
+
+
+# ============ BILLING ============
+@app.get("/billing", response_class=HTMLResponse)
+async def billing(request: Request):
+    from sqlmodel import select, func
+    from datetime import datetime
+
+    bots = db.get_all_bots()
+    month_start = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    with db.get_session() as s:
+        month_tokens = s.exec(select(func.coalesce(func.sum(db.Message.tokens_used), 0)).where(
+            db.Message.created_at >= month_start)).one()
+        month_messages = s.exec(select(func.count(db.Message.id)).where(
+            db.Message.created_at >= month_start, db.Message.role == "user")).one()
+
+        bot_usage = []
+        total_tok = month_tokens or 1
+        for b in bots:
+            tok = s.exec(select(func.coalesce(func.sum(db.Message.tokens_used), 0)).where(
+                db.Message.bot_id == b.id,
+                db.Message.created_at >= month_start)).one()
+            msg = s.exec(select(func.count(db.Message.id)).where(
+                db.Message.bot_id == b.id,
+                db.Message.created_at >= month_start,
+                db.Message.role == "user")).one()
+            bot_usage.append({
+                "id": b.id, "name": b.name, "provider": b.llm_provider,
+                "messages": msg, "tokens": tok,
+                "pct": round(tok / total_tok * 100) if total_tok else 0,
+                "est_usd": round(tok / 1_000_000 * 0.15, 4),
+            })
+
+    free_limit = 1_000_000
+    tokens_pct = min(round(month_tokens / free_limit * 100, 1), 100)
+    remaining = max(free_limit - month_tokens, 0)
+    avg_per_msg = round(month_tokens / month_messages) if month_messages else 0
+    daily_avg = round(month_tokens / max(datetime.utcnow().day, 1))
+    days_left = round(remaining / daily_avg) if daily_avg else 999
+
+    return templates.TemplateResponse("billing.html", {
+        "request": request,
+        "sidebar_bots": bots[:8],
+        "billing": {
+            "month_tokens": month_tokens,
+            "month_messages": month_messages,
+            "tokens_pct": tokens_pct,
+            "remaining": remaining,
+            "days_left": days_left,
+            "avg_tokens_per_msg": avg_per_msg,
+            "daily_tokens": daily_avg,
+            "est_cost": 0 if month_tokens < free_limit else round((month_tokens - free_limit) / 1_000_000 * 350, 0),
+            "bot_usage": sorted(bot_usage, key=lambda x: x["tokens"], reverse=True),
+        },
+    })
