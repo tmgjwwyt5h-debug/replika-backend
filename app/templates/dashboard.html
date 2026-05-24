@@ -2,14 +2,13 @@
 {% block title %}Боты — Реплика{% endblock %}
 
 {% block content %}
-
-<div class="page-head">
-  <div class="eyebrow">ПЛАТФОРМА · ВЕРСИЯ 0.1 MVP</div>
+<div class="page-head fade-up">
+  <div class="eyebrow">Платформа · Версия 0.1 MVP</div>
   <h1>Ваши <span class="accent">боты</span>.</h1>
-  <p class="lede">Создавайте чат-ботов на GigaChat и подключайте их к Telegram. База знаний, тестовый чат и история диалогов — в одном окне.</p>
+  <p class="lede">Создавайте чат-ботов на GigaChat и подключайте к Telegram. База знаний, тест-чат и история диалогов — в одном окне.</p>
 </div>
 
-<div class="stats-strip">
+<div class="stats-strip fade-up d1">
   <div class="stat">
     <div class="k">Всего ботов</div>
     <div class="v">{{ bots|length }}</div>
@@ -19,7 +18,7 @@
     <div class="v"><span class="em">{{ active_count }}</span></div>
   </div>
   <div class="stat">
-    <div class="k">Запущено сейчас</div>
+    <div class="k">В эфире сейчас</div>
     <div class="v">{{ running_ids|length }}</div>
   </div>
   <div class="stat">
@@ -28,45 +27,48 @@
   </div>
 </div>
 
-<div class="bots-grid">
+<div class="bots-grid fade-up d2">
   {% for bot in bots %}
-    <a href="/bots/{{ bot.id }}" class="bot-card">
-      <div class="head">
-        <div class="bot-avatar">{{ bot.name[0]|upper }}</div>
-        {% if bot.status == "active" %}
-          <span class="bot-status active"><span class="blip"></span> в эфире</span>
-        {% elif bot.status == "draft" %}
-          <span class="bot-status draft">черновик</span>
-        {% elif bot.status == "paused" %}
-          <span class="bot-status paused">пауза</span>
-        {% elif bot.status == "error" %}
-          <span class="bot-status error">ошибка</span>
-        {% endif %}
-      </div>
-      <div class="name">{{ bot.name }}</div>
-      <div class="desc">{{ bot.description or "Без описания" }}</div>
-      <div style="margin-bottom:12px;">
-        <a href="/bots/{{ bot.id }}/chat" target="_blank"
-           onclick="event.stopPropagation();"
-           style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.1em;
-                  text-transform:uppercase;color:var(--emerald);text-decoration:none;
-                  padding:4px 10px;border:1px solid rgba(27,110,75,0.3);border-radius:999px;
-                  display:inline-flex;align-items:center;gap:6px;">
-          💬 Тестировать
-        </a>
-      </div>
-      <div class="meta">
-        <span>{{ bot.llm_provider }} · <b>{{ bot.llm_model }}</b></span>
-        <span><b>{{ bot.total_messages }}</b> сообщ.</span>
-      </div>
-    </a>
+  <a href="/bots/{{ bot.id }}" class="bot-card">
+    <div class="card-top">
+      <div class="bot-avatar">{{ bot.name[0]|upper }}</div>
+      {% if bot.status == "active" %}
+        <span class="bot-status active"><span class="blip"></span>в эфире</span>
+      {% elif bot.status == "draft" %}
+        <span class="bot-status draft">черновик</span>
+      {% elif bot.status == "paused" %}
+        <span class="bot-status paused">пауза</span>
+      {% elif bot.status == "error" %}
+        <span class="bot-status error">ошибка</span>
+      {% endif %}
+    </div>
+    <div class="name">{{ bot.name }}</div>
+    <div class="desc">{{ bot.description or "Без описания" }}</div>
+    <div class="card-actions" onclick="event.stopPropagation()">
+      <a href="/bots/{{ bot.id }}/chat" class="card-act-btn" target="_blank">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Тест
+      </a>
+      <a href="/bots/{{ bot.id }}/integrations" class="card-act-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        Интеграции
+      </a>
+    </div>
+    <div class="meta">
+      <span>{{ bot.llm_provider }} · <b>{{ bot.llm_model }}</b></span>
+      <span><b>{{ bot.total_messages }}</b> сообщ.</span>
+    </div>
+  </a>
   {% endfor %}
 
   <a href="/bots/new" class="bot-card empty">
-    <div class="empty-icon">+</div>
+    <div class="empty-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+    </div>
     <div class="head-text">Создать бота</div>
     <div class="sub">Telegram · GigaChat · 2 минуты</div>
   </a>
 </div>
-
 {% endblock %}
