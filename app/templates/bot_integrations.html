@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block title %}Интеграции — {{ bot.name }}{% endblock %}
+{% block crumbs %}
+  <a href="/" style="color:var(--ink-mute);text-decoration:none;">Боты</a>
+  <span class="sep">/</span>
+  <a href="/bots/{{ bot.id }}" style="color:var(--ink-mute);text-decoration:none;">{{ bot.name }}</a>
+  <span class="sep">/</span>
+  <span class="here">Интеграции</span>
+{% endblock %}
+{% block topbar_actions %}
+<a href="/bots/{{ bot.id }}" class="btn ghost">← К боту</a>
+{% endblock %}
+
+{% block content %}
+<style>
+.integ-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:32px}
+.integ-card{background:var(--paper);border:1.5px solid var(--line);border-radius:14px;padding:22px;transition:all 0.2s var(--ease)}
+.integ-card:hover{border-color:rgba(20,17,13,0.25);box-shadow:var(--shadow-md)}
+.integ-card.connected{border-color:var(--emerald);background:rgba(27,110,75,0.03)}
+.integ-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+.integ-icon{width:44px;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:2px 2px 0 rgba(20,17,13,0.1)}
+.integ-title{font-variation-settings:"wght" 600;font-size:15px;margin-bottom:3px}
+.integ-desc{font-size:12.5px;color:var(--ink-mute);line-height:1.5;margin-bottom:14px}
+.integ-status{font-family:'JetBrains Mono',monospace;font-size:9px;padding:3px 8px;border-radius:999px;letter-spacing:0.1em;text-transform:uppercase}
+.integ-status.on{background:rgba(27,110,75,0.1);color:var(--emerald)}
+.integ-status.off{background:var(--paper-deep);color:var(--ink-mute)}
+.integ-status.err{background:rgba(192,75,38,0.1);color:var(--rust)}
+.integ-meta{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-mute);margin-top:8px;letter-spacing:0.06em}
+.expand-btn{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;background:none;border:1px solid var(--line);color:var(--ink-soft);padding:6px 12px;border-radius:6px;cursor:pointer;width:100%;margin-top:10px;transition:all 0.15s}
+.expand-btn:hover{border-color:var(--emerald);color:var(--emerald)}
+.config-form{display:none;margin-top:14px;border-top:1px solid var(--line);padding-top:14px}
+.config-form.open{display:block}
+
+.setup-card{background:var(--ink);color:var(--paper);border-radius:14px;padding:28px;margin-bottom:20px;position:relative;overflow:hidden}
+.setup-card::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 90% -10%,rgba(123,196,112,0.2),transparent 50%);pointer-events:none}
+.setup-steps{list-style:none;margin-top:16px}
+.setup-steps li{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid rgba(242,236,224,0.08)}
+.setup-steps li:last-child{border-bottom:none}
+.step-num{width:22px;height:22px;border-radius:50%;background:var(--mint-bright);color:var(--ink);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;flex-shrink:0}
+.step-text{font-size:13.5px;color:rgba(242,236,224,0.85);line-height:1.5}
+.step-text code{background:rgba(242,236,224,0.1);padding:1px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:12px}
+</style>
+
+<div class="page-head fade-up">
+  <div class="eyebrow">Бот · {{ bot.name }}</div>
+  <h1>Интеграции <span class="accent">{{ bot.name }}</span>.</h1>
+  <p class="lede">Подключите CRM, таблицы или email — и бот будет автоматически отправлять данные о каждом диалоге.</p>
+</div>
+
+<!-- Активные интеграции -->
+{% if integrations %}
+<div class="integ-grid fade-up d1">
+  {% for ig in integrations %}
+  <div class="integ-card {% if ig.enabled %}connected{% endif %}">
+    <div class="integ-head">
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="integ-icon" style="background:{% if ig.type=='webhook' %}#E8F4FD{% elif ig.type=='email' %}#FFF3E0{% elif ig.type=='sheets' %}#E8F5E9{% elif ig.type=='bitrix24' %}#E3F2FD{% else %}#F3E5F5{% endif %}">
+          {% if ig.type=='webhook' %}🔗{% elif ig.type=='email' %}📧{% elif ig.type=='sheets' %}📊{% elif ig.type=='bitrix24' %}🏢{% elif ig.type=='amocrm' %}💼{% endif %}
+        </div>
+        <div>
+          <div class="integ-title">{{ ig.name }}</div>
+          <span class="integ-status {% if ig.last_error %}err{% elif ig.enabled %}on{% else %}off{% endif %}">
+            {% if ig.last_error %}ошибка{% elif ig.enabled %}активна{% else %}откл.{% endif %}
+          </span>
+        </div>
+      </div>
+      <form method="POST" action="/bots/{{ bot.id }}/integrations/{{ ig.id }}/toggle" style="display:inline">
+        <button class="btn sm {% if ig.enabled %}danger{% else %}primary{% endif %}">
+          {{ "Откл." if ig.enabled else "Вкл." }}
+        </button>
+      </form>
+    </div>
+    {% if ig.last_error %}
+    <div class="flash err" style="margin:0 0 10px;font-size:12px;">{{ ig.last_error }}</div>
+    {% endif %}
+    <div class="integ-meta">
+      Сработала {{ ig.trigger_count }} раз
+      {% if ig.last_triggered %} · последний раз {{ ig.last_triggered.strftime("%d.%m %H:%M") }}{% endif %}
+    </div>
+    <form method="POST" action="/bots/{{ bot.id }}/integrations/{{ ig.id }}/delete" onsubmit="return confirm('Удалить интеграцию?')">
+      <button class="btn sm ghost" style="margin-top:10px;width:100%;">Удалить</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Добавить новую -->
+<div style="font-variation-settings:'wght' 600;font-size:18px;letter-spacing:-0.015em;margin-bottom:16px;" class="fade-up d2">
+  Добавить интеграцию
+</div>
+<div class="integ-grid fade-up d2">
+
+  <!-- WEBHOOK -->
+  <div class="integ-card">
+    <div class="integ-head">
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="integ-icon" style="background:#E8F4FD">🔗</div>
+        <div>
+          <div class="integ-title">Webhook / HTTP</div>
+          <span class="integ-status off">универсальный</span>
+        </div>
+      </div>
+    </div>
+    <div class="integ-desc">POST-запрос на ваш URL после каждого сообщения. Работает с Zapier, Make, n8n и любым сервером.</div>
+    <button class="expand-btn" onclick="toggle('wh')">⚙ Настроить</button>
+    <div id="wh" class="config-form">
+      <form method="POST" action="/bots/{{ bot.id }}/integrations/add">
+        <input type="hidden" name="type" value="webhook">
+        <div class="field"><label>Название</label><input class="input" name="name" value="Webhook" required /></div>
+        <div class="field"><label>URL <span class="req">*</span></label><input class="input mono" name="url" placeholder="https://hooks.zapier.com/..." required /></div>
+        <div class="field"><label>Секрет <span class="hint">заголовок X-Replika-Secret</span></label><input class="input mono" name="secret" placeholder="необязательно" /></div>
+        <button type="submit" class="btn primary" style="margin-top:10px;width:100%;">Подключить</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- EMAIL -->
+  <div class="integ-card">
+    <div class="integ-head">
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="integ-icon" style="background:#FFF3E0">📧</div>
+        <div>
+          <div class="integ-title">Email</div>
+          <span class="integ-status off">SMTP · бесплатно</span>
+        </div>
+      </div>
+    </div>
+    <div class="integ-desc">Письмо на почту при каждом новом диалоге. Работает с Gmail (нужен App Password) или любым SMTP.</div>
+    <button class="expand-btn" onclick="toggle('em')">⚙ Настроить</button>
+    <div id="em" class="config-form">
+      <form method="POST" action="/bots/{{ bot.id }}/integrations/add">
+        <input type="hidden" name="type" value="email">
+        <div class="field"><label>Название</label><input class="input" name="name" value="Email-уведомление" required /></div>
+        <div class="field"><label>Ваш Gmail <span class="req">*</span></label><input class="input mono" name="smtp_user" placeholder="you@gmail.com" required /></div>
+        <div class="field"><label>App Password <span class="hint">не пароль Gmail!</span></label><input class="input mono" type="password" name="smtp_pass" placeholder="xxxx xxxx xxxx xxxx" required /></div>
+        <div class="field"><label>Кому отправлять <span class="req">*</span></label><input class="input mono" name="to_email" placeholder="admin@yourcompany.ru" required /></div>
+        <div class="field"><label>SMTP сервер</label><input class="input mono" name="smtp_host" value="smtp.gmail.com" /></div>
+        <div class="field"><label>Порт</label><input class="input mono" name="smtp_port" value="587" /></div>
+        <div style="background:rgba(27,110,75,0.07);border:1px solid rgba(27,110,75,0.2);border-radius:7px;padding:10px 12px;font-size:12px;color:var(--ink-soft);margin-top:4px;line-height:1.5;">
+          Gmail App Password: <a href="https://myaccount.google.com/apppasswords" target="_blank" style="color:var(--emerald);">myaccount.google.com/apppasswords</a> → Создать → Вставить сюда
+        </div>
+        <button type="submit" class="btn primary" style="margin-top:10px;width:100%;">Подключить</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- GOOGLE SHEETS -->
+  <div class="integ-card">
+    <div class="integ-head">
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="integ-icon" style="background:#E8F5E9">📊</div>
+        <div>
+          <div class="integ-title">Google Sheets</div>
+          <span class="integ-status off">Apps Script · бесплатно</span>
+        </div>
+      </div>
+    </div>
+    <div class="integ-desc">Все диалоги записываются в Google Таблицу. Нужно один раз задеплоить Apps Script — займёт 3 минуты.</div>
+    <button class="expand-btn" onclick="toggle('sh')">⚙ Настроить</button>
+    <div id="sh" class="config-form">
+      <div style="background:var(--paper-soft);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;line-height:1.6;">
+        <strong>Инструкция:</strong><br>
+        1. Откройте Google Sheets → Extensions → Apps Script<br>
+        2. Вставьте код ниже и нажмите Deploy → New deployment → Web App<br>
+        3. Execute as: Me, Who has access: Anyone → Deploy<br>
+        4. Скопируйте URL и вставьте ниже
+        <div style="background:var(--ink);color:var(--mint-bright);padding:8px 10px;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:10.5px;margin-top:8px;word-break:break-all;">
+function doPost(e){var d=JSON.parse(e.postData.contents);SpreadsheetApp.getActiveSheet().appendRow([d.timestamp,d.bot,d.user,d.user_message,d.bot_reply,d.channel]);}
+        </div>
+      </div>
+      <form method="POST" action="/bots/{{ bot.id }}/integrations/add">
+        <input type="hidden" name="type" value="sheets">
+        <div class="field"><label>Название</label><input class="input" name="name" value="Google Sheets" required /></div>
+        <div class="field"><label>Web App URL <span class="req">*</span></label><input class="input mono" name="webapp_url" placeholder="https://script.google.com/macros/s/..." required /></div>
+        <button type="submit" class="btn primary" style="margin-top:10px;width:100%;">Подключить</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- BITRIX24 -->
+  <div class="integ-card">
+    <div class="integ-head">
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="integ-icon" style="background:#E3F2FD">🏢</div>
+        <div>
+          <div class="integ-title">Битрикс24</div>
+          <span class="integ-status off">CRM · входящий вебхук</span>
+        </div>
+      </div>
+    </div>
+    <div class="integ-desc">Создаёт лид в Битрикс24 при каждом диалоге. Нужен Incoming Webhook с правами CRM.</div>
+    <button class="expand-btn" onclick="toggle('b24')">⚙ Настроить</button>
+    <div id="b24" class="config-form">
+      <div style="background:var(--paper-soft);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;line-height:1.6;">
+        <strong>Как получить Webhook:</strong><br>
+        Битрикс24 → Приложения → Входящий webhook → Права: CRM → Создать
+      </div>
+      <form method="POST" action="/bots/{{ bot.id }}/integrations/add">
+        <input type="hidden" name="type" value="bitrix24">
+        <div class="field"><label>Название</label><input class="input" name="name" value="Битрикс24 CRM" required /></div>
+        <div class="field"><label>Webhook URL <span class="req">*</span></label><input class="input mono" name="webhook_url" placeholder="https://company.bitrix24.ru/rest/1/xxx..." required /></div>
+        <button type="submit" class="btn primary" style="margin-top:10px;width:100%;">Подключить</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- AMOCRM -->
+  <div class="integ-card">
+    <div class="integ-head">
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="integ-icon" style="background:#F3E5F5">💼</div>
+        <div>
+          <div class="integ-title">amoCRM</div>
+          <span class="integ-status off">CRM · API</span>
+        </div>
+      </div>
+    </div>
+    <div class="integ-desc">Создаёт контакты и сделки в amoCRM. Нужен API-токен из настроек аккаунта.</div>
+    <button class="expand-btn" onclick="toggle('amo')">⚙ Настроить</button>
+    <div id="amo" class="config-form">
+      <form method="POST" action="/bots/{{ bot.id }}/integrations/add">
+        <input type="hidden" name="type" value="amocrm">
+        <div class="field"><label>Название</label><input class="input" name="name" value="amoCRM" required /></div>
+        <div class="field"><label>Домен <span class="req">*</span></label><input class="input mono" name="domain" placeholder="yourcompany.amocrm.ru" required /></div>
+        <div class="field"><label>API Token <span class="req">*</span></label><input class="input mono" type="password" name="api_token" placeholder="eyJ0eXAi..." required /></div>
+        <button type="submit" class="btn primary" style="margin-top:10px;width:100%;">Подключить</button>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+<!-- Инструкция по голосовому боту -->
+<div class="setup-card fade-up d3">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--mint-bright);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:10px;">СКОРО · ГОЛОСОВОЙ БОТ</div>
+  <div style="font-variation-settings:'opsz' 48,'wdth' 95,'wght' 600;font-size:22px;letter-spacing:-0.022em;margin-bottom:8px;">Чтобы запустить голосовой бот</div>
+  <div style="font-size:14px;color:rgba(242,236,224,0.65);margin-bottom:16px;">Получите бесплатный API Яндекс SpeechKit — и бот начнёт принимать голосовые сообщения в Telegram.</div>
+  <ol class="setup-steps">
+    <li><span class="step-num">1</span><span class="step-text">Зайдите на <a href="https://console.yandex.cloud" target="_blank" style="color:var(--mint-bright);">console.yandex.cloud</a> → создайте платёжный аккаунт (карта для верификации, не списывается)</span></li>
+    <li><span class="step-num">2</span><span class="step-text">IAM → Сервисные аккаунты → Создать → добавить роль <code>ai.speechkit.user</code></span></li>
+    <li><span class="step-num">3</span><span class="step-text">API-ключи → Создать ключ → скопировать</span></li>
+    <li><span class="step-num">4</span><span class="step-text">Railway → Variables → добавить <code>YANDEX_API_KEY = ваш_ключ</code></span></li>
+    <li><span class="step-num">5</span><span class="step-text">Написать боту голосовое в Telegram — он ответит голосом 🎙️</span></li>
+  </ol>
+</div>
+
+<script>
+function toggle(id){
+  const el=document.getElementById(id);
+  el.classList.toggle('open');
+}
+</script>
+{% endblock %}
