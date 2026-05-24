@@ -163,3 +163,137 @@ def save_message(conversation_id: int, bot_id: int, role: str, content: str, tok
         s.commit()
         s.refresh(msg)
         return msg
+
+
+# ============ ANALYTICS QUERIES ============
+
+def analytics_global() -> dict:
+    """Глобальная статистика по всей платформе."""
+    from sqlmodel import func
+    with get_session() as s:
+        total_msgs   = s.exec(select(func.count(Message.id))).one() or 0
+        total_convs  = s.exec(select(func.count(Conversation.id))).one() or 0
+        total_bots   = s.exec(select(func.count(Bot.id))).one() or 0
+        active_bots  = s.exec(select(func.count(Bot.id)).where(Bot.status == "active")).one() or 0
+        total_tokens = s.exec(select(func.sum(Message.tokens_used))).one() or 0
+    return {
+        "total_messages": total_msgs,
+        "total_conversations": total_convs,
+        "total_bots": total_bots,
+        "active_bots": active_bots,
+        "total_tokens": total_tokens or 0,
+    }
+
+
+def analytics_messages_per_day(days: int = 30) -> list[dict]:
+    """Сообщения за последние N дней."""
+    from datetime import timedelta
+    from sqlmodel import func
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    with get_session() as s:
+        rows = s.exec(
+            select(
+                func.date(Message.created_at).label("day"),
+                func.count(Message.id).label("count")
+            ).where(
+                Message.created_at >= cutoff,
+                Message.role == "user"
+            ).group_by(func.date(Message.created_at))
+            .order_by(func.date(Message.created_at))
+        ).all()
+    return [{"day": str(r.day), "count": r.count} for r in rows]
+
+
+def analytics_per_bot() -> list[dict]:
+    """Статистика по каждому боту."""
+    from sqlmodel import func
+    with get_session() as s:
+        bots = list(s.exec(select(Bot).order_by(Bot.total_messages.desc())))
+        result = []
+        for bot in bots:
+            convs = s.exec(
+                select(func.count(Conversation.id)).where(Conversation.bot_id == bot.id)
+            ).one() or 0
+            tokens = s.exec(
+                select(func.sum(Message.tokens_used)).where(Message.bot_id == bot.id)
+            ).one() or 0
+            result.append({
+                "id": bot.id,
+                "name": bot.name,
+                "status": bot.status,
+                "messages": bot.total_messages,
+                "conversations": convs,
+                "tokens": tokens or 0,
+                "provider": bot.llm_provider,
+            })
+    return result
+
+
+def get_all_knowledge() -> list:
+    """Все чанки базы знаний со всех ботов."""
+    with get_session() as s:
+        chunks = list(s.exec(
+            select(KnowledgeChunk).order_by(KnowledgeChunk.created_at.desc())
+        ))
+        bots = {b.id: b.name for b in s.exec(select(Bot))}
+        result = []
+        for c in chunks:
+            result.append({
+                "id": c.id,
+                "bot_id": c.bot_id,
+                "bot_name": bots.get(c.bot_id, "Неизвестно"),
+                "title": c.title,
+                "content": c.content,
+                "enabled": c.enabled,
+                "created_at": c.created_at,
+            })
+    return result
+
+
+# ============ ANALYTICS ============
+from datetime import timedelta
+from collections import defaultdict
+
+def get_platform_analytics(days: int = 30) -> dict:
+    """Сводная аналитика платформы за последние N дней."""
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    with get_session() as s:
+        bots     = list(s.exec(select(Bot)))
+        convs    = list(s.exec(select(Conversation)))
+        msgs_all = list(s.exec(select(Message)))
+        msgs_new = [m for m in msgs_all if m.created_at >= cutoff]
+
+        # Сообщения по дням (пользователь)
+        daily: dict = defaultdict(int)
+        for m in msgs_new:
+            if m.role == "user":
+                daily[m.created_at.strftime("%d.%m")] += 1
+
+        # Топ ботов по числу сообщений
+        bot_msgs: dict = defaultdict(int)
+        for m in msgs_all:
+            if m.role == "user":
+                bot_msgs[m.bot_id] += 1
+        top_bots = sorted(bot_msgs.items(), key=lambda x: x[1], reverse=True)[:5]
+
+        # Уникальных пользователей
+        unique_users = len(set(c.external_user_id for c in convs))
+
+        return {
+            "total_bots":    len(bots),
+            "active_bots":   sum(1 for b in bots if b.status == "active"),
+            "total_convs":   len(convs),
+            "total_msgs":    sum(1 for m in msgs_all if m.role == "user"),
+            "total_tokens":  sum(m.tokens_used for m in msgs_all),
+            "unique_users":  unique_users,
+            "daily_msgs":    dict(sorted(daily.items())),
+            "top_bots":      [(bot_id, count) for bot_id, count in top_bots],
+            "days":          days,
+        }
+
+
+def get_all_knowledge() -> list:
+    """Все чанки базы знаний со всех ботов."""
+    with get_session() as s:
+        chunks = list(s.exec(select(KnowledgeChunk).order_by(KnowledgeChunk.created_at.desc())))
+        return chunks
