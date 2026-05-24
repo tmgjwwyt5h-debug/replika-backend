@@ -6,83 +6,119 @@
 <title>{% block title %}Реплика{% endblock %}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400;12..96,75..100,500;12..96,75..100,600;12..96,75..100,700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 44'%3E%3Crect width='44' height='44' rx='10' fill='%231B6E4B'/%3E%3Crect x='11' y='9' width='5' height='26' fill='%23F2ECE0'/%3E%3Cpath d='M15 9 H29 A4 4 0 0 1 33 13 V19 A4 4 0 0 1 29 23 H22 L18 27 V23 H15 Z' fill='%23F2ECE0'/%3E%3C/svg%3E">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,300;12..96,75..100,400;12..96,75..100,500;12..96,75..100,600;12..96,75..100,700;12..96,75..100,800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 44'%3E%3Crect width='44' height='44' rx='10' fill='%231B6E4B'/%3E%3Crect x='11' y='9' width='5' height='26' fill='%23F7F2E8'/%3E%3Cpath d='M15 9H29a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4h-7l-4 4v-4h-3Z' fill='%23F7F2E8'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="/static/style.css">
 <script src="https://unpkg.com/htmx.org@2.0.3" defer></script>
 {% block head %}{% endblock %}
 </head>
 <body>
+<div class="app-shell">
 
-<header class="topbar">
-  <a href="/" class="topbar-logo">
-    <svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg"><rect width="44" height="44" rx="10" fill="#1B6E4B"/><rect x="11" y="9" width="5" height="26" fill="#F2ECE0"/><path d="M15 9 H29 A4 4 0 0 1 33 13 V19 A4 4 0 0 1 29 23 H22 L18 27 V23 H15 Z" fill="#F2ECE0"/></svg>
-    <span class="wm">реплика<span class="dot">.</span></span>
-  </a>
-  <div class="topbar-title">{% block page_title %}{% endblock %}</div>
-  <div class="topbar-actions">
-    {% block topbar_actions %}
-    <a href="/bots/new" class="btn primary">
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Создать бота
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="sidebar">
+    <a href="/" class="sidebar-logo">
+      <svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+        <rect width="44" height="44" rx="9" fill="#1B6E4B"/>
+        <rect x="11" y="9" width="5" height="26" fill="#F7F2E8"/>
+        <path d="M15 9H29a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4h-7l-4 4v-4h-3Z" fill="#F7F2E8"/>
+      </svg>
+      <span class="sidebar-logo-text">реплика<span class="dot">.</span></span>
     </a>
-    {% endblock %}
-  </div>
-</header>
 
-<aside class="sidebar">
-  <div class="sidebar-section">
-    <div class="sidebar-label">Платформа</div>
-    <a href="/" class="sidebar-link {{ 'active' if request.url.path == '/' else '' }}">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
-      Боты
-    </a>
-    <a href="/analytics" class="sidebar-link {{ 'active' if '/analytics' in request.url.path else '' }}">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/></svg>
-      Аналитика
-    </a>
-    <a href="/knowledge" class="sidebar-link {{ 'active' if '/knowledge' in request.url.path else '' }}">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-      База знаний
-    </a>
-    <a href="/billing" class="sidebar-link {{ 'active' if '/billing' in request.url.path else '' }}">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-      Биллинг
-    </a>
-  </div>
-  {% if sidebar_bots %}
-  <hr class="sidebar-divider">
-  <div class="sidebar-section">
-    <div class="sidebar-label">Боты</div>
-    {% for b in sidebar_bots %}
-    <a href="/bots/{{ b.id }}" class="sidebar-link {{ 'active' if request.url.path == '/bots/'~b.id else '' }}" style="font-size:13px;">
-      <div style="width:18px;height:18px;border-radius:5px;background:linear-gradient(135deg,#1B6E4B,#0F4A30);color:#F2ECE0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">{{ b.name[0]|upper }}</div>
-      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ b.name }}</span>
-      {% if b.status == "active" %}<span style="width:6px;height:6px;border-radius:50%;background:#7BC470;flex-shrink:0;margin-left:auto;"></span>{% endif %}
-    </a>
-    {% endfor %}
-  </div>
-  {% endif %}
-  <div class="sidebar-spacer"></div>
-  <div class="sidebar-bottom">
-    <div class="sidebar-user">
-      <div class="sidebar-avatar">А</div>
-      <div class="sidebar-user-info">
-        <div class="name">Мой аккаунт</div>
-        <div class="plan">Free tier</div>
+    <nav class="sidebar-nav">
+      <span class="nav-label">Платформа</span>
+      <ul>
+        <li>
+          <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+            <span>Боты</span>
+          </a>
+        </li>
+        <li>
+          <a href="/analytics" class="{% if '/analytics' in request.url.path %}active{% endif %}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="22 12 18 8 13 14 9 10 2 17"/>
+              <line x1="2" y1="20" x2="22" y2="20"/>
+            </svg>
+            <span>Аналитика</span>
+          </a>
+        </li>
+        <li>
+          <a href="/knowledge" class="{% if '/knowledge' in request.url.path %}active{% endif %}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+            </svg>
+            <span>База знаний</span>
+          </a>
+        </li>
+      </ul>
+
+      <span class="nav-label">Аккаунт</span>
+      <ul>
+        <li>
+          <a href="/billing" class="{% if '/billing' in request.url.path %}active{% endif %}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+            </svg>
+            <span>Биллинг</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" class="dim">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+            </svg>
+            <span>Профиль</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" class="dim">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+            </svg>
+            <span>Настройки</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="plan-pill">
+        <span class="plan-dot"></span>
+        <span class="plan-text">MVP · Free</span>
       </div>
     </div>
+  </aside>
+
+  <!-- ===== MAIN ===== -->
+  <div class="main-area">
+    <header class="topbar">
+      <div class="topbar-crumbs">
+        {% block crumbs %}
+        <span style="color:var(--ink-m);">реплика.платформа</span>
+        {% endblock %}
+      </div>
+      <div class="topbar-actions">
+        {% block topbar_actions %}
+        <a href="/bots/new" class="btn primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Создать бота
+        </a>
+        {% endblock %}
+      </div>
+    </header>
+
+    <main>
+      {% block content %}{% endblock %}
+    </main>
   </div>
-</aside>
 
-<main class="main">
-  {% block content %}{% endblock %}
-</main>
-
-<footer>
-  <div>© 2026 Реплика · v0.1 MVP</div>
-  <div class="mono">Railway · Python · SQLite</div>
-</footer>
-
+</div>
+{% block scripts %}{% endblock %}
 </body>
 </html>
