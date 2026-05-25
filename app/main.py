@@ -16,6 +16,7 @@ import app.db as db
 from app.db import Integration, BotFlow, get_bot_flow, save_bot_flow
 from app.llm import generate_reply
 from app.integrations import get_bot_integrations, fire_all
+from app import auth
 import app.telegram_runner as tg
 
 logging.basicConfig(level=logging.INFO,
@@ -44,6 +45,55 @@ async def lifespan(app_: FastAPI):
 app = FastAPI(title="Реплика", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=os.path.join(BASE, "static")), name="static")
 T = Jinja2Templates(directory=os.path.join(BASE, "templates"))
+
+
+# ════════════════════════════════════════════════════════════
+#  AUTH MIDDLEWARE & LOGIN
+# ════════════════════════════════════════════════════════════
+@app.middleware("http")
+async def auth_mw(request: Request, call_next):
+    path = request.url.path
+    if auth.is_public(path):
+        return await call_next(request)
+    user = auth.get_current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    return await call_next(request)
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request, error: str = ""):
+    # Если уже залогинен — на главную
+    if auth.get_current_user(request):
+        return RedirectResponse("/", status_code=303)
+    return T.TemplateResponse("login.html", {
+        "request": request, "error": bool(error),
+    })
+
+
+@app.post("/login")
+async def login_submit(
+    request: Request,
+    username: str = Form(...), password: str = Form(...),
+):
+    if auth.check_credentials(username.strip(), password):
+        resp = RedirectResponse("/", status_code=303)
+        token = auth._sign(username.strip())
+        resp.set_cookie(
+            auth.COOKIE_NAME, token,
+            max_age=7 * 24 * 3600,   # 7 дней
+            httponly=True, samesite="lax",
+        )
+        return resp
+    return RedirectResponse("/login?error=1", status_code=303)
+
+
+@app.get("/logout")
+async def logout():
+    resp = RedirectResponse("/login", status_code=303)
+    resp.delete_cookie(auth.COOKIE_NAME)
+    return resp
+
 
 
 # ── Health ──────────────────────────────────────────────────
