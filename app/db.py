@@ -152,6 +152,30 @@ def save_message(conversation_id, bot_id, role, content, tokens=0):
         return msg
 
 
+
+
+class BotFlow(SQLModel, table=True):
+    """Сценарий бота — граф блоков и связей."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    bot_id: int = Field(foreign_key="bot.id", index=True, unique=True)
+    data: str = "{}"  # JSON: {nodes, connections}
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+def get_bot_flow(bot_id: int):
+    with get_session() as s:
+        return s.exec(select(BotFlow).where(BotFlow.bot_id == bot_id)).first()
+
+def save_bot_flow(bot_id: int, data: str):
+    with get_session() as s:
+        flow = s.exec(select(BotFlow).where(BotFlow.bot_id == bot_id)).first()
+        if flow:
+            flow.data = data
+            flow.updated_at = datetime.utcnow()
+        else:
+            flow = BotFlow(bot_id=bot_id, data=data)
+        s.add(flow); s.commit()
+
 # ── Analytics ────────────────────────────────────────────────
 def get_platform_analytics(days: int = 30) -> dict:
     """Аналитика платформы. Возвращает всё готовое для шаблона."""
