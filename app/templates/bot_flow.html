@@ -102,7 +102,7 @@ body{font-family:'Bricolage Grotesque',system-ui,sans-serif;background:var(--pap
 
 /* SVG edges */
 .edges-svg{position:absolute;top:0;left:0;width:4000px;height:3000px;pointer-events:none;overflow:visible}
-.edge-path{fill:none;stroke:#8A8174;stroke-width:2;cursor:pointer;pointer-events:stroke}
+.edge-path{fill:none;stroke:#8A8174;stroke-width:2.25;cursor:pointer;pointer-events:stroke;stroke-linecap:round}
 .edge-path:hover{stroke:var(--rust);stroke-width:2.5}
 .edge-path.selected{stroke:var(--rust)}
 .edge-arrow{fill:#8A8174}
@@ -110,18 +110,19 @@ body{font-family:'Bricolage Grotesque',system-ui,sans-serif;background:var(--pap
 
 /* ── NODES ── */
 .node{
-  position:absolute;min-width:180px;max-width:240px;
-  border-radius:10px;border:2px solid transparent;
-  box-shadow:0 2px 8px rgba(20,17,13,.12),0 1px 3px rgba(20,17,13,.08);
+  position:absolute;min-width:200px;max-width:260px;
+  border-radius:14px;border:1.5px solid transparent;
+  box-shadow:0 4px 16px rgba(20,17,13,.08),0 1px 4px rgba(20,17,13,.06);
   cursor:pointer;user-select:none;
   transition:box-shadow .15s;
 }
-.node.selected{box-shadow:0 0 0 3px rgba(27,110,75,.4),0 4px 16px rgba(20,17,13,.15)!important}
-.node:hover{box-shadow:0 4px 16px rgba(20,17,13,.16),0 2px 6px rgba(20,17,13,.1)}
+.node{transition:transform .18s cubic-bezier(.22,1,.36,1),box-shadow .18s}
+.node.selected{box-shadow:0 0 0 3px rgba(27,110,75,.4),0 8px 24px rgba(20,17,13,.15)!important;transform:translateY(-2px)}
+.node:hover{box-shadow:0 8px 24px rgba(20,17,13,.14),0 3px 8px rgba(20,17,13,.08);transform:translateY(-1px)}
 
 .node-header{
-  display:flex;align-items:center;gap:7px;
-  padding:8px 10px 6px;border-radius:8px 8px 0 0;
+  display:flex;align-items:center;gap:8px;
+  padding:11px 14px 9px;border-radius:12px 12px 0 0;
   font-variation-settings:"opsz" 32,"wdth" 100,"wght" 600;
   font-size:12px;letter-spacing:-.01em;cursor:move;
 }
@@ -131,15 +132,16 @@ body{font-family:'Bricolage Grotesque',system-ui,sans-serif;background:var(--pap
 .node:hover .node-del{opacity:.5}
 .node-del:hover{opacity:1!important;background:rgba(0,0,0,.15)}
 
-.node-body{padding:7px 10px 8px;font-size:12.5px;line-height:1.45;min-height:28px}
+.node-body{padding:11px 14px 13px;font-size:13px;line-height:1.5;min-height:34px}
 .node-text{color:inherit;opacity:.85;word-break:break-word;font-style:italic}
 .node-text.empty{opacity:.4;font-style:normal}
 .node-var{font-family:'JetBrains Mono',monospace;font-size:10px;opacity:.6;margin-top:3px}
 
 /* Ports */
 .port{
-  position:absolute;width:14px;height:14px;border-radius:50%;
-  border:2px solid white;cursor:crosshair;z-index:10;
+  position:absolute;width:13px;height:13px;border-radius:50%;
+  border:2.5px solid white;cursor:crosshair;z-index:10;
+  box-shadow:0 2px 5px rgba(20,17,13,.2);
   transition:transform .15s,box-shadow .15s;
 }
 .port:hover{transform:scale(1.35);box-shadow:0 0 0 3px rgba(27,110,75,.3)}
@@ -525,13 +527,18 @@ function bezier(x1,y1,x2,y2) {
 }
 
 function renderEdges() {
-  // remove old edge paths
-  svgEl.querySelectorAll('.edge-g').forEach(e=>e.remove());
+  // ── Полная очистка: и по селектору, и по дочерним тегам ──
+  // (SVG className — SVGAnimatedString, поэтому подстраховываемся)
+  Array.from(svgEl.children).forEach(child => {
+    if (child.tagName === 'g' || (child.getAttribute && child.getAttribute('class')?.includes('edge-g'))) {
+      child.remove();
+    }
+  });
   edges.forEach(edge => {
     const from = getPortPos(edge.from, edge.fromPort);
     const to   = getPortPos(edge.to,   edge.toPort);
     const g = document.createElementNS('http://www.w3.org/2000/svg','g');
-    g.className = 'edge-g';
+    g.setAttribute('class', 'edge-g');
     const p = document.createElementNS('http://www.w3.org/2000/svg','path');
     const clr = edge.fromPort==='yes'?'url(#arr-green)':edge.fromPort==='no'?'url(#arr-red)':'url(#arr)';
     const strokeClr = edge.fromPort==='yes'?'#1B6E4B':edge.fromPort==='no'?'#C04B26':'#8A8174';
@@ -810,7 +817,11 @@ canvasArea.addEventListener('mousedown', e => {
 document.addEventListener('mousemove', e => {
   if (isPanning) {
     panX=e.clientX-panStartX;panY=e.clientY-panStartY;
-    applyTransform();renderEdges();updateMinimap();
+    applyTransform();
+    if (!window._rafScheduled) {
+      window._rafScheduled = true;
+      requestAnimationFrame(() => { renderEdges(); updateMinimap(); window._rafScheduled = false });
+    }
   }
   if (dragging) {
     const dx=(e.clientX-dragging.startMouseX)/zoom;
@@ -821,7 +832,10 @@ document.addEventListener('mousemove', e => {
       node.y=Math.max(0,dragging.startNodeY+dy);
       const el=nodeEl(node.id);
       if (el) {el.style.left=node.x+'px';el.style.top=node.y+'px'}
-      renderEdges();updateMinimap();
+      if (!window._rafScheduled) {
+        window._rafScheduled = true;
+        requestAnimationFrame(() => { renderEdges(); updateMinimap(); window._rafScheduled = false });
+      }
     }
   }
   if (connecting) {
