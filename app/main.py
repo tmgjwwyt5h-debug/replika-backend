@@ -13,7 +13,7 @@ from fastapi.templating import Jinja2Templates
 from sqlmodel import select
 
 import app.db as db
-from app.db import Integration
+from app.db import Integration, BotFlow, get_bot_flow, save_bot_flow
 from app.llm import generate_reply
 from app.integrations import get_bot_integrations, fire_all
 import app.telegram_runner as tg
@@ -344,6 +344,29 @@ async def billing_page(request: Request):
 
 
 # ── Entry point ──────────────────────────────────────────────
+
+# ── Flow constructor ──────────────────────────────────────
+@app.get("/bots/{bot_id}/flow", response_class=HTMLResponse)
+async def flow_page(request: Request, bot_id: int):
+    bot = db.get_bot(bot_id)
+    if not bot: raise HTTPException(404)
+    return T.TemplateResponse("bot_flow.html", {"request": request, "bot": bot})
+
+@app.get("/bots/{bot_id}/flow/data")
+async def flow_get(bot_id: int):
+    from fastapi.responses import JSONResponse
+    flow = get_bot_flow(bot_id)
+    if not flow: return JSONResponse({})
+    import json
+    return JSONResponse(json.loads(flow.data))
+
+@app.post("/bots/{bot_id}/flow/save")
+async def flow_save(bot_id: int, request: Request):
+    import json
+    body = await request.json()
+    save_bot_flow(bot_id, json.dumps(body))
+    return {"ok": True}
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "8000"))
