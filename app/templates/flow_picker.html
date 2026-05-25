@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Скрипты ботов — Реплика{% endblock %}
+{% block crumbs %}<span style="color:var(--ink-m)">реплика</span><span class="sep">/</span><span class="here">Скрипты</span>{% endblock %}
+{% block topbar_actions %}{% endblock %}
+
+{% block content %}
+<div class="page-head fade-up">
+  <div class="eyebrow">Графический конструктор</div>
+  <h1>Скриптовые <span class="accent">сценарии</span>.</h1>
+  <p class="lede">Постройте диалог как блок-схему. Без программирования — перетащите блоки, соедините их и сохраните. Бот будет следовать по сценарию.</p>
+</div>
+
+{% if bots %}
+<div class="bots-grid fade-up d1">
+  {% for bot in bots %}
+  <a href="/bots/{{ bot.id }}/flow" class="bot-card">
+    <div class="card-top">
+      <div class="bot-avatar">{{ bot.name[0]|upper }}</div>
+      <div style="display:inline-flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;background:rgba(27,110,75,.1);color:var(--g);border:1px solid rgba(27,110,75,.25);border-radius:999px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="10" height="10"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        конструктор
+      </div>
+    </div>
+    <div class="name">{{ bot.name }}</div>
+    <div class="desc">{{ bot.description or "Открыть сценарий" }}</div>
+    <div class="meta">
+      <span>{{ bot.llm_provider }} · <b>{{ bot.llm_model }}</b></span>
+      <span style="color:var(--g)">Открыть →</span>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div style="background:var(--paper);border:1.5px dashed rgba(27,110,75,.3);border-radius:14px;padding:48px;text-align:center;margin-top:20px;" class="fade-up d1">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40" style="color:var(--g);opacity:.5;margin-bottom:14px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+  <div style="font-variation-settings:'wght' 600;font-size:18px;margin-bottom:8px;">Создайте бота, чтобы начать</div>
+  <p style="font-size:14px;color:var(--ink-m);line-height:1.55;max-width:42ch;margin:0 auto 18px;">Конструктор сценариев привязан к конкретному боту. Создайте бота — и сразу появится возможность построить его логику визуально.</p>
+  <a href="/bots/new" class="btn primary large">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Создать бота
+  </a>
+</div>
+{% endif %}
+
+<!-- Что это такое -->
+<div class="form-section fade-up d2" style="margin-top:24px">
+  <div class="section-title">Как это работает</div>
+  <h3>Скриптовый бот <span style="color:var(--g)">vs</span> LLM-бот</h3>
+  <p style="font-size:14px;color:var(--ink-s);line-height:1.65;margin-top:12px;">
+    <strong>LLM-бот</strong> отвечает с помощью GigaChat по системному промпту — гибкий, понимает свободную речь, но менее предсказуем.<br><br>
+    <strong>Скриптовый бот</strong> следует жёсткому сценарию: задаёт конкретные вопросы, ветвится по условиям, переводит на оператора. Подходит для квалификации лидов, записи на приём, опросов.<br><br>
+    Можно сочетать: использовать LLM-промпт + скриптовый сценарий как fallback.
+  </p>
+</div>
+{% endblock %}
