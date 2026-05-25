@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Конструктор — {{ bot.name }}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400;12..96,75..100,500;12..96,75..100,600;12..96,75..100,700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F2ECE0; --paper-d:#E8E1D2; --paper-s:#EFE9DC;
+  --ink:#14110D; --ink-s:#4A4339; --ink-m:#8A8174;
+  --e:#1B6E4B; --e2:#0F4A30; --mint:#7BC470; --mint2:#9CE08F;
+  --amber:#D49642; --rust:#C04B26; --steel:#5A9BC5; --violet:#9C7BC4;
+  --line:rgba(20,17,13,.14); --line-s:rgba(20,17,13,.07);
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;-webkit-font-smoothing:antialiased}
+body{background:var(--paper);color:var(--ink);font-family:'Bricolage Grotesque',system-ui,sans-serif;font-variation-settings:"opsz" 14,"wdth" 100,"wght" 400;line-height:1.5}
+body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.25;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.88' numOctaves='4' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .08 0 0 0 0 .07 0 0 0 0 .05 0 0 0 .09 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+.mono{font-family:'JetBrains Mono',monospace}
+
+/* ── TOPBAR ── */
+.topbar{
+  height:50px;display:flex;align-items:center;gap:0;
+  background:var(--ink);color:var(--paper);
+  border-bottom:1px solid rgba(242,236,224,.1);
+  position:relative;z-index:20;flex-shrink:0;
+}
+.tb-logo{display:flex;align-items:center;gap:8px;padding:0 18px;height:100%;border-right:1px solid rgba(242,236,224,.1);text-decoration:none;color:var(--paper)}
+.tb-logo svg{width:22px;height:22px}
+.tb-logo .wm{font-variation-settings:"opsz" 24,"wdth" 100,"wght" 700;font-size:15px;letter-spacing:-.024em}
+.tb-logo .dot{color:var(--mint2)}
+.tb-crumbs{padding:0 18px;display:flex;align-items:center;gap:8px;flex:1;font-size:13px;color:rgba(242,236,224,.55)}
+.tb-crumbs a{color:rgba(242,236,224,.55);text-decoration:none}
+.tb-crumbs a:hover{color:var(--paper)}
+.tb-crumbs .sep{opacity:.35}
+.tb-crumbs .here{color:var(--paper);font-variation-settings:"wght" 500}
+.tb-actions{display:flex;align-items:center;gap:8px;padding:0 18px;border-left:1px solid rgba(242,236,224,.1)}
+.tb-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(242,236,224,.1);border:1px solid rgba(242,236,224,.18);
+  padding:6px 12px;border-radius:6px;
+  font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--paper);cursor:pointer;font-weight:600;white-space:nowrap;
+  transition:all .15s;
+}
+.tb-btn:hover{background:rgba(242,236,224,.18);border-color:rgba(242,236,224,.3)}
+.tb-btn.save{background:rgba(27,110,75,.7);border-color:rgba(123,196,112,.4)}
+.tb-btn.save:hover{background:rgba(27,110,75,.95)}
+.tb-btn svg{width:12px;height:12px}
+.zoom-val{font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(242,236,224,.5);padding:0 4px;min-width:40px;text-align:center}
+
+/* ── LAYOUT ── */
+.flow-layout{display:grid;grid-template-columns:200px 1fr 280px;height:calc(100vh - 50px);overflow:hidden}
+
+/* ── LEFT PALETTE ── */
+.palette{
+  background:var(--paper);border-right:1px solid var(--line);
+  padding:14px 12px;overflow-y:auto;
+  display:flex;flex-direction:column;gap:4px;
+  position:relative;z-index:10;
+}
+.palette-title{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-m);padding:0 4px;margin-bottom:6px}
+.palette-node{
+  display:flex;align-items:center;gap:9px;
+  padding:9px 10px;border-radius:8px;
+  background:var(--paper-s);border:1px solid var(--line);
+  cursor:grab;user-select:none;
+  transition:all .15s;
+  font-size:13px;font-variation-settings:"wght" 500;
+}
+.palette-node:hover{border-color:var(--ink);transform:translateX(2px);box-shadow:2px 2px 0 var(--line)}
+.palette-node:active{cursor:grabbing}
+.node-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.palette-sep{height:1px;background:var(--line);margin:8px 0}
+
+/* ── CANVAS ── */
+.canvas-wrap{
+  overflow:hidden;position:relative;cursor:default;
+  background-color:var(--paper-s);
+  background-image:radial-gradient(circle,rgba(20,17,13,.18) 1px,transparent 1px);
+  background-size:22px 22px;
+}
+.canvas-wrap.connecting{cursor:crosshair}
+.canvas-inner{position:absolute;transform-origin:0 0;width:3000px;height:2000px}
+.connections-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+
+/* ── NODES ── */
+.flow-node{
+  position:absolute;
+  background:var(--paper);
+  border:1.5px solid var(--ink);
+  border-radius:10px;
+  min-width:160px;max-width:220px;
+  cursor:pointer;user-select:none;
+  box-shadow:3px 3px 0 var(--ink);
+  transition:box-shadow .15s,transform .15s;
+  z-index:5;overflow:hidden;
+}
+.flow-node:hover{box-shadow:5px 5px 0 var(--ink)}
+.flow-node.selected{
+  border-color:var(--e);
+  box-shadow:3px 3px 0 var(--e),0 0 0 3px rgba(27,110,75,.15);
+}
+.flow-node.dragging{box-shadow:8px 8px 0 var(--ink);transform:rotate(.5deg);z-index:100}
+.node-bar{height:4px;width:100%}
+.node-body{padding:9px 12px 10px}
+.node-type-label{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;opacity:.55;margin-bottom:3px}
+.node-title{font-variation-settings:"wght" 600;font-size:13px;letter-spacing:-.012em;line-height:1.25;word-break:break-word}
+.node-subtitle{font-size:11.5px;color:var(--ink-m);margin-top:3px;line-height:1.4;word-break:break-word}
+
+/* Node colour bars */
+.node-start .node-bar{background:var(--e)}
+.node-message .node-bar{background:var(--amber)}
+.node-question .node-bar{background:var(--steel)}
+.node-condition .node-bar{background:var(--rust)}
+.node-api .node-bar{background:var(--violet)}
+.node-end .node-bar{background:var(--ink)}
+.node-goto .node-bar{background:var(--mint)}
+
+/* Ports */
+.node-ports{display:flex;justify-content:space-between;align-items:center;padding:0 8px 8px;gap:4px;flex-wrap:wrap}
+.port{
+  width:14px;height:14px;border-radius:50%;
+  border:2px solid var(--ink);background:var(--paper);
+  cursor:pointer;position:relative;
+  transition:all .15s;flex-shrink:0;
+}
+.port:hover{background:var(--e);border-color:var(--e);transform:scale(1.3)}
+.port.port-in{margin-right:auto}
+.port.port-out{margin-left:auto}
+.port-label{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-m);letter-spacing:.06em;margin:0 2px;line-height:14px}
+.port-group{display:flex;align-items:center;gap:3px}
+
+/* ── RIGHT PANEL ── */
+.props-panel{
+  background:var(--paper);border-left:1px solid var(--line);
+  display:flex;flex-direction:column;overflow:hidden;
+  position:relative;z-index:10;
+}
+.props-head{
+  padding:14px 16px;border-bottom:1px solid var(--line);
+  flex-shrink:0;
+}
+.props-head .title{font-variation-settings:"wght" 600;font-size:15px;letter-spacing:-.015em}
+.props-head .sub{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-m);letter-spacing:.14em;text-transform:uppercase;margin-top:2px}
+.props-body{flex:1;overflow-y:auto;padding:14px 16px;scrollbar-width:thin}
+.prop-field{margin-bottom:14px}
+.prop-label{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-s);margin-bottom:6px;display:block}
+.prop-input,.prop-textarea,.prop-select{
+  width:100%;background:var(--paper-s);border:1.5px solid var(--line);
+  padding:8px 10px;border-radius:6px;
+  font-family:'Bricolage Grotesque',sans-serif;font-size:13.5px;
+  color:var(--ink);outline:none;
+  transition:border-color .15s;
+}
+.prop-input:focus,.prop-textarea:focus,.prop-select:focus{border-color:var(--e);background:var(--paper)}
+.prop-textarea{min-height:90px;resize:vertical;line-height:1.5}
+.prop-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234A4339' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px;cursor:pointer}
+.prop-hint{font-size:11.5px;color:var(--ink-m);margin-top:5px;line-height:1.5}
+.prop-btn{
+  display:inline-flex;align-items:center;gap:6px;width:100%;justify-content:center;
+  border:1.5px solid var(--line);background:var(--paper-s);padding:8px 12px;
+  border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:10.5px;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--ink);cursor:pointer;font-weight:600;
+  transition:all .15s;margin-top:6px;
+}
+.prop-btn:hover{background:var(--ink);color:var(--paper)}
+.prop-btn.danger{color:var(--rust);border-color:rgba(192,75,38,.3)}
+.prop-btn.danger:hover{background:var(--rust);color:var(--paper);border-color:var(--rust)}
+.prop-sep{height:1px;background:var(--line);margin:14px 0}
+.no-sel{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:24px;color:var(--ink-m);gap:10px;
+}
+.no-sel svg{opacity:.3}
+.no-sel p{font-size:13px;line-height:1.5}
+.no-sel .tip{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;margin-top:4px}
+
+/* ── MINI MAP ── */
+.minimap{
+  position:absolute;bottom:14px;left:14px;z-index:10;
+  width:170px;height:110px;
+  background:rgba(242,236,224,.85);
+  border:1px solid var(--line);border-radius:8px;
+  overflow:hidden;
+}
+.minimap-title{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-m);padding:5px 8px 3px;border-bottom:1px solid var(--line-s)}
+.minimap-inner{position:relative;width:100%;height:calc(100% - 24px)}
+.minimap-node{position:absolute;border-radius:2px}
+.minimap-viewport{position:absolute;border:1.5px solid var(--e);border-radius:2px;background:rgba(27,110,75,.1)}
+
+/* ── ZOOM CONTROLS ── */
+.zoom-controls{
+  position:absolute;bottom:14px;right:14px;z-index:10;
+  display:flex;gap:4px;flex-direction:column;
+}
+.zoom-btn{
+  width:30px;height:30px;background:var(--paper);border:1px solid var(--line);
+  border-radius:6px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;
+  transition:all .15s;box-shadow:var(--sh);
+}
+.zoom-btn:hover{background:var(--ink);color:var(--paper)}
+
+/* ── CONNECTION ── */
+.conn-path{stroke:var(--ink);stroke-width:2;fill:none;stroke-opacity:.5;transition:stroke-opacity .15s}
+.conn-path:hover{stroke-opacity:1;stroke:var(--e)}
+.conn-path.selected{stroke:var(--e);stroke-opacity:1;stroke-width:2.5}
+.conn-label{font-family:'JetBrains Mono',monospace;font-size:9.5px;fill:var(--ink-m)}
+.conn-delete{cursor:pointer;opacity:0}
+.conn-group:hover .conn-delete{opacity:1}
+.rubber-band{stroke:var(--e);stroke-width:2;fill:none;stroke-dasharray:5 4;animation:dash .8s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-18}}
+
+/* ── EMPTY STATE ── */
+.canvas-hint{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  text-align:center;color:var(--ink-m);pointer-events:none;
+  font-size:14px;line-height:1.65;
+}
+.canvas-hint .big{font-variation-settings:"wght" 600;font-size:22px;color:var(--ink-s);margin-bottom:8px}
+
+/* ── CONTEXT MENU ── */
+.ctx-menu{
+  position:fixed;z-index:100;
+  background:var(--paper);border:1px solid var(--line);
+  border-radius:8px;box-shadow:0 8px 24px rgba(20,17,13,.15),3px 3px 0 var(--line);
+  padding:4px;min-width:160px;
+}
+.ctx-item{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 10px;border-radius:5px;
+  font-size:13px;cursor:pointer;
+  transition:background .12s;
+}
+.ctx-item:hover{background:var(--paper-d)}
+.ctx-item.danger{color:var(--rust)}
+.ctx-item svg{width:14px;height:14px;opacity:.65}
+
+/* ── TOAST ── */
+.toast{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+  background:var(--ink);color:var(--paper);
+  padding:10px 18px;border-radius:var(--r-pill);
+  font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;
+  box-shadow:0 4px 16px rgba(20,17,13,.2);z-index:999;
+  animation:toastIn .3s var(--ease);
+}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <a href="/" class="tb-logo">
+    <svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+      <rect width="44" height="44" rx="9" fill="#1B6E4B"/>
+      <rect x="11" y="9" width="5" height="26" fill="#F2ECE0"/>
+      <path d="M15 9H29a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4h-7l-4 4v-4h-3Z" fill="#F2ECE0"/>
+    </svg>
+    <span class="wm">реплика<span class="dot">.</span></span>
+  </a>
+  <div class="tb-crumbs">
+    <a href="/">Боты</a><span class="sep">/</span>
+    <a href="/bots/{{ bot.id }}">{{ bot.name }}</a><span class="sep">/</span>
+    <span class="here">Конструктор сценария</span>
+  </div>
+  <div class="tb-actions">
+    <button class="tb-btn" onclick="undo()" title="Отменить (Ctrl+Z)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+    </button>
+    <button class="tb-btn" onclick="redo()" title="Повторить (Ctrl+Y)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>
+    </button>
+    <span class="tb-btn" style="cursor:default;background:transparent;border-color:transparent;">
+      <span class="zoom-val" id="zoomLabel">100%</span>
+    </span>
+    <button class="tb-btn" onclick="fitView()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+    </button>
+    <button class="tb-btn save" onclick="saveFlow()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      Сохранить
+    </button>
+  </div>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="flow-layout">
+
+  <!-- LEFT: NODE PALETTE -->
+  <div class="palette">
+    <div class="palette-title">Блоки</div>
+
+    <div class="palette-node" draggable="true" data-type="message" title="Бот отправляет сообщение">
+      <span class="node-dot" style="background:var(--amber)"></span>Сообщение
+    </div>
+    <div class="palette-node" draggable="true" data-type="question" title="Бот задаёт вопрос и ждёт ответа">
+      <span class="node-dot" style="background:var(--steel)"></span>Вопрос
+    </div>
+    <div class="palette-node" draggable="true" data-type="condition" title="Ветвление по условию">
+      <span class="node-dot" style="background:var(--rust)"></span>Условие
+    </div>
+
+    <div class="palette-sep"></div>
+    <div class="palette-title">Действия</div>
+
+    <div class="palette-node" draggable="true" data-type="api" title="HTTP запрос к внешнему API">
+      <span class="node-dot" style="background:var(--violet)"></span>API запрос
+    </div>
+    <div class="palette-node" draggable="true" data-type="goto" title="Перейти к другому блоку">
+      <span class="node-dot" style="background:var(--mint)"></span>Переход
+    </div>
+
+    <div class="palette-sep"></div>
+    <div class="palette-title">Завершение</div>
+
+    <div class="palette-node" draggable="true" data-type="end" title="Конец диалога">
+      <span class="node-dot" style="background:var(--ink)"></span>Конец диалога
+    </div>
+    <div class="palette-node" draggable="true" data-type="operator" title="Перевести на оператора">
+      <span class="node-dot" style="background:var(--rust)"></span>Передать оператору
+    </div>
+
+    <div class="palette-sep"></div>
+    <div style="font-size:11.5px;color:var(--ink-m);padding:4px;line-height:1.5;">
+      Перетащите блок на холст или дважды кликните по холсту
+    </div>
+  </div>
+
+  <!-- CENTER: CANVAS -->
+  <div class="canvas-wrap" id="canvasWrap">
+    <div class="canvas-inner" id="canvasInner">
+      <svg class="connections-svg" id="connSvg">
+        <defs>
+          <marker id="arr" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto">
+            <path d="M0,0 L0,8 L9,4 z" fill="rgba(20,17,13,.5)"/>
+          </marker>
+          <marker id="arr-sel" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto">
+            <path d="M0,0 L0,8 L9,4 z" fill="#1B6E4B"/>
+          </marker>
+        </defs>
+        <line id="rubberBand" class="rubber-band" style="display:none"/>
+      </svg>
+
+      <div class="canvas-hint" id="canvasHint">
+        <div class="big">Холст пустой</div>
+        <p>Перетащите блок из левой панели<br>или дважды кликните по холсту</p>
+      </div>
+    </div>
+
+    <!-- MINI MAP -->
+    <div class="minimap">
+      <div class="minimap-title">МИНИ-КАРТА</div>
+      <div class="minimap-inner" id="minimapInner"></div>
+    </div>
+
+    <!-- ZOOM -->
+    <div class="zoom-controls">
+      <div class="zoom-btn" onclick="zoomIn()">+</div>
+      <div class="zoom-btn" onclick="zoomOut()">−</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: PROPERTIES -->
+  <div class="props-panel" id="propsPanel">
+    <div class="props-head">
+      <div class="title" id="propTitle">Свойства блока</div>
+      <div class="sub" id="propSub">выберите блок на холсте</div>
+    </div>
+    <div id="noSel" class="no-sel">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40">
+        <rect x="3" y="3" width="18" height="18" rx="3"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="13" y2="13"/>
+      </svg>
+      <p>Кликните на блок чтобы редактировать его настройки</p>
+      <p class="tip">DEL — удалить выбранное</p>
+    </div>
+    <div class="props-body" id="propsBody" style="display:none"></div>
+  </div>
+</div>
+
+<!-- CONTEXT MENU -->
+<div class="ctx-menu" id="ctxMenu" style="display:none"></div>
+
+<script>
+// ══════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════
+const BOT_ID = {{ bot.id }};
+let nodes = []; // {id, type, x, y, data:{title, text, ...}}
+let connections = []; // {id, from, fromPort, to, toPort, label}
+let selectedNode = null;
+let selectedConn = null;
+let zoom = 1;
+let panX = 0, panY = 0;
+let undoStack = [], redoStack = [];
+let connectingFrom = null; // {nodeId, portId}
+let dragNode = null;
+let dragOffX = 0, dragOffY = 0;
+let isPanning = false;
+let panStartX = 0, panStartY = 0;
+let nodeCounter = 0;
+
+const canvasWrap = document.getElementById('canvasWrap');
+const canvasInner = document.getElementById('canvasInner');
+const connSvg = document.getElementById('connSvg');
+const rubberBand = document.getElementById('rubberBand');
+const minimapInner = document.getElementById('minimapInner');
+
+// ══════════════════════════════════════════════
+//  NODE DEFINITIONS
+// ══════════════════════════════════════════════
+const NODE_DEFS = {
+  start:    {label:'Старт',      bar:'#1B6E4B', ports:['out'],           defaultData:{title:'Начало диалога',text:''}},
+  message:  {label:'Сообщение',  bar:'#D49642', ports:['in','out'],       defaultData:{title:'Сообщение',text:'Привет! Чем могу помочь?'}},
+  question: {label:'Вопрос',     bar:'#5A9BC5', ports:['in','yes','no'],  defaultData:{title:'Вопрос',text:'Введите вопрос…',yes:'Ответ получен',no:'Не понял'}},
+  condition:{label:'Условие',    bar:'#C04B26', ports:['in','yes','no'],  defaultData:{title:'Условие',text:'{{ переменная }} == значение',yes:'Да',no:'Нет'}},
+  api:      {label:'API запрос', bar:'#9C7BC4', ports:['in','ok','err'],  defaultData:{title:'API запрос',text:'https://api.example.com/data',ok:'Успех',err:'Ошибка'}},
+  goto:     {label:'Переход',    bar:'#7BC470', ports:['in'],             defaultData:{title:'Переход',text:'Блок назначения'}},
+  end:      {label:'Конец',      bar:'#14110D', ports:['in'],             defaultData:{title:'Конец диалога',text:'Разговор завершён'}},
+  operator: {label:'Оператор',   bar:'#C04B26', ports:['in'],             defaultData:{title:'Передать оператору',text:'Связываю с оператором…'}},
+};
+
+// Port labels
+const PORT_LABELS = {out:'→',in:'←',yes:'Да',no:'Нет',ok:'OK',err:'!',};
+
+// ══════════════════════════════════════════════
+//  NODE CREATION
+// ══════════════════════════════════════════════
+function mkId(){ return 'n' + (++nodeCounter) + '_' + Date.now() }
+function mkConnId(){ return 'c' + Date.now() + '_' + Math.random().toString(36).slice(2,6) }
+
+function addNode(type, x, y){
+  const def = NODE_DEFS[type]; if(!def) return;
+  const id = mkId();
+  const data = {...def.defaultData};
+  const node = {id, type, x, y, data};
+  nodes.push(node);
+  renderNode(node);
+  updateCanvasHint();
+  updateMinimap();
+  pushUndo();
+  return node;
+}
+
+function renderNode(node){
+  const def = NODE_DEFS[node.type]; if(!def) return;
+  let el = document.getElementById(node.id);
+  const isNew = !el;
+  if(isNew){
+    el = document.createElement('div');
+    el.id = node.id;
+    el.className = `flow-node node-${node.type}`;
+    canvasInner.appendChild(el);
+  }
+  el.style.left = node.x + 'px';
+  el.style.top  = node.y + 'px';
+  el.innerHTML = `
+    <div class="node-bar" style="background:${def.bar}"></div>
+    <div class="node-body">
+      <div class="node-type-label">${def.label}</div>
+      <div class="node-title">${esc(node.data.title||def.label)}</div>
+      ${node.data.text ? `<div class="node-subtitle">${esc(node.data.text.slice(0,60))}${node.data.text.length>60?'…':''}</div>` : ''}
+    </div>
+    <div class="node-ports">
+      ${def.ports.map(p=>`
+        <div class="port-group">
+          ${p!=='in'?`<span class="port-label mono">${PORT_LABELS[p]||p}</span>`:''}
+          <div class="port port-${p==='in'?'in':'out'}" data-node="${node.id}" data-port="${p}" title="${PORT_LABELS[p]||p}"></div>
+          ${p==='in'?`<span class="port-label mono">${PORT_LABELS[p]||p}</span>`:''}
+        </div>
+      `).join('')}
+    </div>`;
+
+  if(isNew){
+    el.addEventListener('mousedown', onNodeMousedown);
+    el.addEventListener('click', onNodeClick);
+    el.addEventListener('contextmenu', onNodeRightClick);
+    el.querySelectorAll('.port').forEach(p=>{
+      p.addEventListener('mousedown', onPortMousedown);
+    });
+  }
+  if(node.id === (selectedNode?.id)){ el.classList.add('selected') }
+  else { el.classList.remove('selected') }
+}
+
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+
+// ══════════════════════════════════════════════
+//  DRAG NODES
+// ══════════════════════════════════════════════
+function onNodeMousedown(e){
+  if(e.target.classList.contains('port')) return;
+  if(e.button !== 0) return;
+  const el = e.currentTarget;
+  const node = nodes.find(n=>n.id===el.id); if(!node) return;
+  dragNode = node;
+  const rect = el.getBoundingClientRect();
+  dragOffX = (e.clientX - rect.left) / zoom;
+  dragOffY = (e.clientY - rect.top) / zoom;
+  el.classList.add('dragging');
+  e.stopPropagation();
+}
+
+// ══════════════════════════════════════════════
+//  PORT → CONNECTION
+// ══════════════════════════════════════════════
+function onPortMousedown(e){
+  e.stopPropagation(); e.preventDefault();
+  const port = e.currentTarget;
+  const portId = port.dataset.port;
+  const nodeId = port.dataset.node;
+  if(portId === 'in'){
+    // Click on input port — finish connection if connecting
+    if(connectingFrom){
+      finishConnection(nodeId, portId);
+    }
+    return;
+  }
+  // Start connection from output port
+  connectingFrom = {nodeId, portId};
+  canvasWrap.classList.add('connecting');
+  rubberBand.style.display = '';
+}
+
+function finishConnection(toNodeId, toPortId){
+  if(!connectingFrom) return;
+  if(connectingFrom.nodeId === toNodeId){ cancelConnect(); return; }
+  // Check duplicate
+  const dup = connections.find(c=>c.from===connectingFrom.nodeId && c.fromPort===connectingFrom.portId && c.to===toNodeId);
+  if(dup){ cancelConnect(); return; }
+  const conn = {
+    id: mkConnId(),
+    from: connectingFrom.nodeId, fromPort: connectingFrom.portId,
+    to: toNodeId, toPort: toPortId,
+    label: ''
+  };
+  connections.push(conn);
+  cancelConnect();
+  renderConnections();
+  updateMinimap();
+  pushUndo();
+}
+
+function cancelConnect(){
+  connectingFrom = null;
+  canvasWrap.classList.remove('connecting');
+  rubberBand.style.display = 'none';
+}
+
+// ══════════════════════════════════════════════
+//  RENDER CONNECTIONS
+// ══════════════════════════════════════════════
+function getPortPos(nodeId, portId){
+  const el = document.getElementById(nodeId); if(!el) return null;
+  const port = el.querySelector(`[data-port="${portId}"]`); if(!port) return null;
+  const nr = el.getBoundingClientRect();
+  const pr = port.getBoundingClientRect();
+  const wr = canvasWrap.getBoundingClientRect();
+  return {
+    x: (nr.left + (pr.left - nr.left) + pr.width/2 - wr.left - panX) / zoom,
+    y: (nr.top  + (pr.top  - nr.top)  + pr.height/2 - wr.top  - panY) / zoom,
+  };
+}
+
+function bezier(x1,y1,x2,y2){
+  const dx = Math.abs(x2-x1)*0.55;
+  return `M${x1},${y1} C${x1+dx},${y1} ${x2-dx},${y2} ${x2},${y2}`;
+}
+
+function renderConnections(){
+  // Remove old connection elements
+  connSvg.querySelectorAll('.conn-group').forEach(g=>g.remove());
+  connections.forEach(c=>{
+    const p1 = getPortPos(c.from, c.fromPort);
+    const p2 = getPortPos(c.to, c.toPort);
+    if(!p1||!p2) return;
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.className.baseVal = 'conn-group';
+    g.dataset.id = c.id;
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d', bezier(p1.x,p1.y,p2.x,p2.y));
+    path.setAttribute('marker-end', c.id===selectedConn ? 'url(#arr-sel)' : 'url(#arr)');
+    path.className.baseVal = 'conn-path' + (c.id===selectedConn?' selected':'');
+    path.dataset.id = c.id;
+
+    // Click area (wider invisible path)
+    const hitPath = document.createElementNS('http://www.w3.org/2000/svg','path');
+    hitPath.setAttribute('d', bezier(p1.x,p1.y,p2.x,p2.y));
+    hitPath.setAttribute('stroke','transparent');
+    hitPath.setAttribute('stroke-width','14');
+    hitPath.setAttribute('fill','none');
+    hitPath.style.cursor = 'pointer';
+    hitPath.addEventListener('click', ()=>selectConnection(c.id));
+
+    // Label
+    if(c.label){
+      const mx = (p1.x+p2.x)/2, my = (p1.y+p2.y)/2;
+      const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+      rect.setAttribute('x', mx-20); rect.setAttribute('y', my-9);
+      rect.setAttribute('width',40); rect.setAttribute('height',16);
+      rect.setAttribute('rx',4); rect.setAttribute('fill','#F2ECE0');
+      rect.setAttribute('stroke','rgba(20,17,13,.14)');
+      const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+      text.setAttribute('x', mx); text.setAttribute('y', my+2);
+      text.setAttribute('text-anchor','middle');
+      text.className.baseVal = 'conn-label';
+      text.textContent = c.label;
+      g.appendChild(rect); g.appendChild(text);
+    }
+
+    // Delete button (X on midpoint)
+    const mx = (p1.x+p2.x)/2, my = (p1.y+p2.y)/2;
+    const del = document.createElementNS('http://www.w3.org/2000/svg','text');
+    del.setAttribute('x', mx+8); del.setAttribute('y', my-6);
+    del.className.baseVal = 'conn-delete mono';
+    del.setAttribute('font-size','11'); del.setAttribute('fill','var(--rust)');
+    del.style.cursor = 'pointer';
+    del.textContent = '×';
+    del.addEventListener('click', (e)=>{ e.stopPropagation(); deleteConnection(c.id) });
+
+    g.appendChild(path); g.appendChild(hitPath); g.appendChild(del);
+    connSvg.insertBefore(g, rubberBand);
+  });
+}
+
+function selectConnection(id){
+  selectedConn = id;
+  selectedNode = null;
+  document.querySelectorAll('.flow-node').forEach(n=>n.classList.remove('selected'));
+  renderConnections();
+  const c = connections.find(x=>x.id===id);
+  if(c) showConnectionProps(c);
+}
+
+function deleteConnection(id){
+  connections = connections.filter(c=>c.id!==id);
+  if(selectedConn===id){ selectedConn=null; showEmptyProps() }
+  renderConnections();
+  updateMinimap();
+  pushUndo();
+}
+
+// ══════════════════════════════════════════════
+//  SELECTION & PROPS
+// ══════════════════════════════════════════════
+function onNodeClick(e){
+  if(e.target.classList.contains('port')) return;
+  if(connectingFrom){ cancelConnect(); return; }
+  const id = e.currentTarget.id;
+  if(connectingFrom) { cancelConnect(); return; }
+  selectNode(id);
+  e.stopPropagation();
+}
+
+function selectNode(id){
+  selectedNode = nodes.find(n=>n.id===id);
+  selectedConn = null;
+  document.querySelectorAll('.flow-node').forEach(n=>{
+    n.classList.toggle('selected', n.id===id);
+  });
+  renderConnections();
+  showNodeProps(selectedNode);
+}
+
+function deselectAll(){
+  selectedNode = null; selectedConn = null;
+  document.querySelectorAll('.flow-node').forEach(n=>n.classList.remove('selected'));
+  renderConnections();
+  showEmptyProps();
+}
+
+function showEmptyProps(){
+  document.getElementById('propTitle').textContent = 'Свойства блока';
+  document.getElementById('propSub').textContent = 'выберите блок на холсте';
+  document.getElementById('noSel').style.display = '';
+  document.getElementById('propsBody').style.display = 'none';
+}
+
+function showNodeProps(node){
+  if(!node) return showEmptyProps();
+  const def = NODE_DEFS[node.type];
+  document.getElementById('propTitle').textContent = def.label;
+  document.getElementById('propSub').textContent = `ID: ${node.id}`;
+  document.getElementById('noSel').style.display = 'none';
+  const body = document.getElementById('propsBody');
+  body.style.display = '';
+
+  const fields = buildNodeFields(node);
+  body.innerHTML = fields + `
+    <div class="prop-sep"></div>
+    <button class="prop-btn danger" onclick="deleteSelectedNode()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6m4-6v6"/></svg>
+      Удалить блок
+    </button>`;
+
+  // Bind inputs
+  body.querySelectorAll('[data-field]').forEach(el=>{
+    el.addEventListener('input', ()=>{
+      node.data[el.dataset.field] = el.value;
+      document.getElementById(node.id) && renderNode(node);
+    });
+    el.addEventListener('change', ()=>{ pushUndo() });
+  });
+}
+
+function buildNodeFields(node){
+  const d = node.data;
+  let f = `
+    <div class="prop-field">
+      <label class="prop-label">Название блока</label>
+      <input class="prop-input" data-field="title" value="${esc(d.title||'')}"/>
+    </div>`;
+
+  const type = node.type;
+  if(['message','question','condition','api','goto','end','operator'].includes(type)){
+    const lbl = type==='message'?'Текст сообщения':type==='question'?'Текст вопроса':type==='condition'?'Условие (BPL)':type==='api'?'URL запроса':'Описание';
+    f += `
+      <div class="prop-field">
+        <label class="prop-label">${lbl}</label>
+        <textarea class="prop-textarea" data-field="text">${esc(d.text||'')}</textarea>
+      </div>`;
+  }
+  if(type==='question'||type==='condition'){
+    f += `
+      <div class="prop-field">
+        <label class="prop-label">Ветка «Да / Ответ получен»</label>
+        <input class="prop-input" data-field="yes" value="${esc(d.yes||'Да')}"/>
+      </div>
+      <div class="prop-field">
+        <label class="prop-label">Ветка «Нет / Не понял»</label>
+        <input class="prop-input" data-field="no" value="${esc(d.no||'Нет')}"/>
+      </div>`;
+  }
+  if(type==='api'){
+    f += `
+      <div class="prop-field">
+        <label class="prop-label">Метод</label>
+        <select class="prop-select" data-field="method">
+          ${['GET','POST','PUT','DELETE'].map(m=>`<option${d.method===m?' selected':''}>${m}</option>`).join('')}
+        </select>
+      </div>
+      <div class="prop-field">
+        <label class="prop-label">Переменная для ответа</label>
+        <input class="prop-input" data-field="var" value="${esc(d.var||'result')}" placeholder="result"/>
+        <div class="prop-hint">Сохраняет ответ API в эту переменную</div>
+      </div>`;
+  }
+  return f;
+}
+
+function showConnectionProps(c){
+  document.getElementById('propTitle').textContent = 'Связь';
+  document.getElementById('propSub').textContent = `${c.from} → ${c.to}`;
+  document.getElementById('noSel').style.display = 'none';
+  const body = document.getElementById('propsBody');
+  body.style.display = '';
+  body.innerHTML = `
+    <div class="prop-field">
+      <label class="prop-label">Подпись на связи</label>
+      <input class="prop-input" id="connLabel" value="${esc(c.label||'')}" placeholder="Необязательно"/>
+    </div>
+    <div class="prop-sep"></div>
+    <button class="prop-btn danger" onclick="deleteConnection('${c.id}')">
+      Удалить связь
+    </button>`;
+  document.getElementById('connLabel').addEventListener('input', e=>{
+    c.label = e.target.value; renderConnections();
+  });
+}
+
+// ══════════════════════════════════════════════
+//  CONTEXT MENU
+// ══════════════════════════════════════════════
+const ctxMenu = document.getElementById('ctxMenu');
+function onNodeRightClick(e){
+  e.preventDefault(); e.stopPropagation();
+  const nodeId = e.currentTarget.id;
+  selectNode(nodeId);
+  ctxMenu.style.display = '';
+  ctxMenu.style.left = e.clientX + 'px';
+  ctxMenu.style.top  = e.clientY + 'px';
+  ctxMenu.innerHTML = `
+    <div class="ctx-item" onclick="duplicateNode('${nodeId}');hideCtx()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      Дублировать
+    </div>
+    <div class="ctx-item danger" onclick="deleteNode('${nodeId}');hideCtx()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+      Удалить
+    </div>`;
+}
+function hideCtx(){ ctxMenu.style.display='none' }
+
+// ══════════════════════════════════════════════
+//  CANVAS EVENTS
+// ══════════════════════════════════════════════
+canvasWrap.addEventListener('mousedown', e=>{
+  if(e.button===1||(e.button===0&&e.altKey)){
+    isPanning=true; panStartX=e.clientX-panX; panStartY=e.clientY-panY;
+    canvasWrap.style.cursor='grabbing'; e.preventDefault();
+  }
+  if(e.target===canvasWrap||e.target===canvasInner){
+    hideCtx();
+    if(connectingFrom){ cancelConnect(); return; }
+  }
+});
+
+canvasWrap.addEventListener('dblclick', e=>{
+  if(e.target!==canvasWrap&&e.target!==canvasInner) return;
+  const wr = canvasWrap.getBoundingClientRect();
+  const x = (e.clientX - wr.left - panX) / zoom;
+  const y = (e.clientY - wr.top  - panY) / zoom;
+  addNode('message', x-80, y-30);
+});
+
+document.addEventListener('mousemove', e=>{
+  if(isPanning){
+    panX = e.clientX - panStartX;
+    panY = e.clientY - panStartY;
+    applyTransform();
+    updateMinimap();
+    return;
+  }
+  if(dragNode){
+    const wr = canvasWrap.getBoundingClientRect();
+    dragNode.x = (e.clientX - wr.left - panX) / zoom - dragOffX;
+    dragNode.y = (e.clientY - wr.top  - panY) / zoom - dragOffY;
+    const el = document.getElementById(dragNode.id);
+    if(el){ el.style.left=dragNode.x+'px'; el.style.top=dragNode.y+'px' }
+    renderConnections();
+    updateMinimap();
+    return;
+  }
+  if(connectingFrom){
+    const fromNode = nodes.find(n=>n.id===connectingFrom.nodeId);
+    const fromPort = document.querySelector(`[data-node="${connectingFrom.nodeId}"][data-port="${connectingFrom.portId}"]`);
+    if(fromPort){
+      const p1 = getPortPos(connectingFrom.nodeId, connectingFrom.portId);
+      if(p1){
+        const wr = canvasWrap.getBoundingClientRect();
+        const mx = (e.clientX-wr.left-panX)/zoom;
+        const my = (e.clientY-wr.top-panY)/zoom;
+        rubberBand.setAttribute('x1',p1.x); rubberBand.setAttribute('y1',p1.y);
+        rubberBand.setAttribute('x2',mx); rubberBand.setAttribute('y2',my);
+      }
+    }
+  }
+});
+
+document.addEventListener('mouseup', e=>{
+  if(isPanning){ isPanning=false; canvasWrap.style.cursor='default' }
+  if(dragNode){
+    dragNode = null;
+    document.querySelectorAll('.flow-node').forEach(n=>n.classList.remove('dragging'));
+    pushUndo();
+  }
+  if(connectingFrom && e.target.classList.contains('port') && e.target.dataset.port==='in'){
+    finishConnection(e.target.dataset.node, 'in');
+  }
+});
+
+canvasWrap.addEventListener('click', e=>{
+  if(e.target===canvasWrap||e.target===canvasInner){
+    deselectAll(); hideCtx();
+  }
+});
+document.addEventListener('click', e=>{
+  if(!ctxMenu.contains(e.target)) hideCtx();
+});
+
+// ══════════════════════════════════════════════
+//  DRAG FROM PALETTE
+// ══════════════════════════════════════════════
+document.querySelectorAll('.palette-node').forEach(el=>{
+  el.addEventListener('dragstart', e=>{
+    e.dataTransfer.setData('nodeType', el.dataset.type);
+  });
+});
+canvasWrap.addEventListener('dragover', e=>{ e.preventDefault(); e.dataTransfer.dropEffect='copy' });
+canvasWrap.addEventListener('drop', e=>{
+  e.preventDefault();
+  const type = e.dataTransfer.getData('nodeType'); if(!type) return;
+  const wr = canvasWrap.getBoundingClientRect();
+  addNode(type, (e.clientX-wr.left-panX)/zoom-80, (e.clientY-wr.top-panY)/zoom-30);
+});
+
+// ══════════════════════════════════════════════
+//  WHEEL ZOOM
+// ══════════════════════════════════════════════
+canvasWrap.addEventListener('wheel', e=>{
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  const wr = canvasWrap.getBoundingClientRect();
+  const mx = e.clientX - wr.left;
+  const my = e.clientY - wr.top;
+  const newZoom = Math.min(2, Math.max(0.25, zoom*delta));
+  panX = mx - (mx-panX)*(newZoom/zoom);
+  panY = my - (my-panY)*(newZoom/zoom);
+  zoom = newZoom;
+  applyTransform();
+  document.getElementById('zoomLabel').textContent = Math.round(zoom*100)+'%';
+  updateMinimap();
+}, {passive:false});
+
+function applyTransform(){
+  canvasInner.style.transform = `translate(${panX}px,${panY}px) scale(${zoom})`;
+}
+function zoomIn(){ zoom=Math.min(2,zoom*1.2); applyTransform(); document.getElementById('zoomLabel').textContent=Math.round(zoom*100)+'%'; updateMinimap() }
+function zoomOut(){ zoom=Math.max(0.25,zoom/1.2); applyTransform(); document.getElementById('zoomLabel').textContent=Math.round(zoom*100)+'%'; updateMinimap() }
+
+function fitView(){
+  if(!nodes.length){ zoom=1; panX=80; panY=80; applyTransform(); return }
+  const xs = nodes.map(n=>n.x), ys = nodes.map(n=>n.y);
+  const minX=Math.min(...xs), maxX=Math.max(...xs)+200;
+  const minY=Math.min(...ys), maxY=Math.max(...ys)+100;
+  const wr = canvasWrap.getBoundingClientRect();
+  const scaleX = wr.width / (maxX-minX+80);
+  const scaleY = wr.height / (maxY-minY+80);
+  zoom = Math.min(1, scaleX, scaleY);
+  panX = -minX*zoom + 40;
+  panY = -minY*zoom + 40;
+  applyTransform();
+  document.getElementById('zoomLabel').textContent = Math.round(zoom*100)+'%';
+  updateMinimap();
+}
+
+// ══════════════════════════════════════════════
+//  MINI MAP
+// ══════════════════════════════════════════════
+function updateMinimap(){
+  minimapInner.innerHTML = '';
+  if(!nodes.length) return;
+  const xs=nodes.map(n=>n.x), ys=nodes.map(n=>n.y);
+  const minX=Math.min(...xs)-20, maxX=Math.max(...xs)+220;
+  const minY=Math.min(...ys)-20, maxY=Math.max(...ys)+110;
+  const rng = Math.max(maxX-minX, maxY-minY, 400);
+  const mw = minimapInner.offsetWidth||160;
+  const mh = minimapInner.offsetHeight||80;
+  const sc = Math.min(mw/rng, mh/rng);
+
+  nodes.forEach(n=>{
+    const def = NODE_DEFS[n.type];
+    const d = document.createElement('div');
+    d.className = 'minimap-node';
+    d.style.cssText = `left:${(n.x-minX)*sc}px;top:${(n.y-minY)*sc}px;width:${160*sc}px;height:${50*sc}px;background:${def?.bar||'#14110D'};opacity:.7`;
+    minimapInner.appendChild(d);
+  });
+
+  // Viewport rect
+  const wr = canvasWrap.getBoundingClientRect();
+  const vw=wr.width/zoom, vh=wr.height/zoom;
+  const vx=(-panX/zoom-minX)*sc, vy=(-panY/zoom-minY)*sc;
+  const vp = document.createElement('div');
+  vp.className = 'minimap-viewport';
+  vp.style.cssText = `left:${vx}px;top:${vy}px;width:${vw*sc}px;height:${vh*sc}px`;
+  minimapInner.appendChild(vp);
+}
+
+// ══════════════════════════════════════════════
+//  DELETE
+// ══════════════════════════════════════════════
+function deleteSelectedNode(){
+  if(selectedNode) deleteNode(selectedNode.id);
+}
+function deleteNode(id){
+  nodes = nodes.filter(n=>n.id!==id);
+  connections = connections.filter(c=>c.from!==id&&c.to!==id);
+  const el = document.getElementById(id); if(el) el.remove();
+  if(selectedNode?.id===id){ selectedNode=null; showEmptyProps() }
+  renderConnections(); updateMinimap(); updateCanvasHint(); pushUndo();
+}
+function duplicateNode(id){
+  const node = nodes.find(n=>n.id===id); if(!node) return;
+  addNode(node.type, node.x+30, node.y+30);
+  const copy = nodes[nodes.length-1];
+  copy.data = {...node.data};
+  renderNode(copy);
+}
+
+document.addEventListener('keydown', e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+  if(e.key==='Delete'||e.key==='Backspace'){
+    if(selectedNode) deleteNode(selectedNode.id);
+    else if(selectedConn) deleteConnection(selectedConn);
+  }
+  if(e.ctrlKey||e.metaKey){
+    if(e.key==='z'){ e.preventDefault(); undo() }
+    if(e.key==='y'||e.key==='Z'){ e.preventDefault(); redo() }
+    if(e.key==='s'){ e.preventDefault(); saveFlow() }
+  }
+});
+
+// ══════════════════════════════════════════════
+//  UNDO / REDO
+// ══════════════════════════════════════════════
+function snapshot(){ return JSON.stringify({nodes, connections}) }
+function pushUndo(){
+  undoStack.push(snapshot());
+  if(undoStack.length>50) undoStack.shift();
+  redoStack = [];
+}
+function undo(){
+  if(!undoStack.length) return;
+  redoStack.push(snapshot());
+  restoreSnapshot(undoStack.pop());
+}
+function redo(){
+  if(!redoStack.length) return;
+  undoStack.push(snapshot());
+  restoreSnapshot(redoStack.pop());
+}
+function restoreSnapshot(s){
+  const data = JSON.parse(s);
+  canvasInner.querySelectorAll('.flow-node').forEach(n=>n.remove());
+  connSvg.querySelectorAll('.conn-group').forEach(g=>g.remove());
+  nodes = data.nodes; connections = data.connections;
+  nodeCounter = Math.max(nodeCounter, ...nodes.map(n=>parseInt(n.id.split('_')[0].slice(1))||0));
+  nodes.forEach(n=>renderNode(n));
+  renderConnections(); updateMinimap(); updateCanvasHint();
+  deselectAll();
+}
+
+// ══════════════════════════════════════════════
+//  CANVAS HINT
+// ══════════════════════════════════════════════
+function updateCanvasHint(){
+  document.getElementById('canvasHint').style.display = nodes.length ? 'none' : '';
+}
+
+// ══════════════════════════════════════════════
+//  SAVE / LOAD
+// ══════════════════════════════════════════════
+async function saveFlow(){
+  const btn = document.querySelector('.tb-btn.save');
+  btn.textContent = 'Сохранение…';
+  try{
+    const resp = await fetch(`/bots/${BOT_ID}/flow/save`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({nodes, connections})
+    });
+    if(resp.ok){ showToast('✓ Сценарий сохранён'); btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Сохранить' }
+    else throw new Error(await resp.text());
+  }catch(e){ showToast('Ошибка сохранения: '+e.message); btn.innerHTML='Сохранить' }
+}
+
+async function loadFlow(){
+  try{
+    const resp = await fetch(`/bots/${BOT_ID}/flow/data`);
+    if(!resp.ok) return initDefault();
+    const data = await resp.json();
+    if(!data.nodes?.length) return initDefault();
+    nodes = data.nodes; connections = data.connections||[];
+    nodeCounter = Math.max(0, ...nodes.map(n=>parseInt(n.id.split('_')[0].slice(1))||0));
+    nodes.forEach(n=>renderNode(n));
+    renderConnections(); updateMinimap(); updateCanvasHint();
+    pushUndo();
+    setTimeout(fitView, 100);
+  }catch(e){ initDefault() }
+}
+
+function initDefault(){
+  // Создаём стартовый сценарий
+  const s = addNode('start', 80, 200);
+  const m = addNode('message', 320, 200);
+  const q = addNode('question', 560, 200);
+  const y = addNode('message', 800, 120);
+  const n = addNode('message', 800, 300);
+  const e = addNode('end', 1040, 200);
+  y.data.title = 'Ответ понятен'; y.data.text = 'Отлично! Записываю…'; renderNode(y);
+  n.data.title = 'Не понял'; n.data.text = 'Извините, не понял. Попробуйте ещё раз.'; renderNode(n);
+  connections.push(
+    {id:mkConnId(),from:s.id,fromPort:'out',to:m.id,toPort:'in',label:''},
+    {id:mkConnId(),from:m.id,fromPort:'out',to:q.id,toPort:'in',label:''},
+    {id:mkConnId(),from:q.id,fromPort:'yes',to:y.id,toPort:'in',label:'Ответ'},
+    {id:mkConnId(),from:q.id,fromPort:'no', to:n.id,toPort:'in',label:'Не понял'},
+    {id:mkConnId(),from:y.id,fromPort:'out',to:e.id,toPort:'in',label:''},
+  );
+  renderConnections(); updateMinimap(); updateCanvasHint();
+  setTimeout(fitView, 100);
+  pushUndo();
+}
+
+function showToast(msg){
+  const t = document.createElement('div');
+  t.className='toast'; t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 2400);
+}
+
+// INIT
+loadFlow();
+</script>
+</body>
+</html>
