@@ -417,6 +417,13 @@ async def flow_save(bot_id: int, request: Request):
     save_bot_flow(bot_id, json.dumps(body))
     return {"ok": True}
 
+
+# ── Flow picker — список ботов с конструктором ─────────────
+@app.get("/flow", response_class=HTMLResponse)
+async def flow_picker(request: Request):
+    bots = db.get_all_bots()
+    return T.TemplateResponse("flow_picker.html", {"request": request, "bots": bots})
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "8000"))
